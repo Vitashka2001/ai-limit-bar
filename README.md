@@ -43,7 +43,7 @@ When fresh Claude Code data is unavailable, automatic updates can briefly launch
 - Codex or the official Codex editor extension for Codex limits;
 - official Claude Code for live Claude limits, or Claude Desktop for cached fallback data.
 
-Download `AI-Limit-Bar-2.4.7.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.4.8.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 

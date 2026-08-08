@@ -942,7 +942,8 @@ private struct ProviderDashboardState {
 private final class LimitsDashboardView: NSView {
     private static let providerHeaderHeight: CGFloat = 50
     private static let compactWindowHeight: CGFloat = 35
-    private static let resetWindowHeight: CGFloat = 47
+    private static let resetDetailsOffset: CGFloat = 18
+    private static let resetWindowHeight = compactWindowHeight + resetDetailsOffset
 
     private var active: DisplayedLimit?
     private var providers: [ProviderDashboardState] = []
@@ -996,14 +997,14 @@ private final class LimitsDashboardView: NSView {
         for window in state.windows {
             let remaining = window.remainingPercent
             let selectedWindow = isActive && window == active?.window
+            let detailsOffset = window.resetsAt == nil ? CGFloat.zero : Self.resetDetailsOffset
             drawText(Self.windowLabel(window), rect: NSRect(x: 45, y: y, width: bounds.width - 127, height: 16), font: .systemFont(ofSize: 11.5, weight: selectedWindow ? .semibold : .medium), color: state.isStale ? .secondaryLabelColor : .labelColor)
-            let percentageY = y + (window.resetsAt == nil ? -1 : 17)
-            drawText("\(Int(remaining.rounded()))%", rect: NSRect(x: bounds.width - 72, y: percentageY, width: 56, height: 17), font: .monospacedDigitSystemFont(ofSize: 12, weight: .semibold), color: state.isStale ? .secondaryLabelColor : LimitPalette.color(for: remaining), alignment: .right)
+            drawText("\(Int(remaining.rounded()))%", rect: NSRect(x: bounds.width - 72, y: y - 1 + detailsOffset, width: 56, height: 17), font: .monospacedDigitSystemFont(ofSize: 12, weight: .semibold), color: state.isStale ? .secondaryLabelColor : LimitPalette.color(for: remaining), alignment: .right)
             if let resetsAt = window.resetsAt {
                 let resetText = L10n.format("window.resetAt", Self.resetDateFormatter.string(from: resetsAt))
                 drawText(resetText, rect: NSRect(x: 45, y: y + 17, width: bounds.width - 127, height: 14), font: .systemFont(ofSize: 10, weight: .regular), color: .secondaryLabelColor)
             }
-            let progressY = y + (window.resetsAt == nil ? 22 : 35)
+            let progressY = y + 22 + detailsOffset
             drawProgress(remaining, rect: NSRect(x: 45, y: progressY, width: bounds.width - 61, height: selectedWindow ? 5 : 4), muted: state.isStale)
             y += Self.windowHeight(for: window)
         }

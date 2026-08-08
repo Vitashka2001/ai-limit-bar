@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.8 - 2026-08-09
+
+- Gives percentages the same vertical spacing above progress bars in compact and reset-detail rows.
+- Derives expanded row geometry from the compact layout to keep future alignment consistent.
+
 ## 2.4.7 - 2026-08-09
 
 - Aligns percentages with reset details directly above each progress bar.
