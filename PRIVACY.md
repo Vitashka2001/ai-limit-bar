@@ -13,7 +13,7 @@ The app:
 - receives Codex account and limit information from the locally installed `codex app-server`;
 - reads only Claude Desktop's local `plan-usage-history.json` usage cache for Claude percentages, timestamps, and its non-secret organization identifier.
 
-Claude's local cache does not contain email, plan type, or reset times. Data older than 15 minutes is marked as cached and is not used for automatic status-bar selection.
+Claude's local cache does not contain email, plan type, or reset times. Data older than five minutes is marked as cached and is not used for automatic status-bar selection.
 
 When **Keep Claude data current** is enabled, AI Limit Bar may launch Claude Desktop hidden so the official app can refresh its own cache. AI Limit Bar never reads Claude's session credentials and closes only the hidden Claude instance it launched itself.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.1 - 2026-08-08
+
+- Switched the Codex provider mark to official `Codex` Mono from `@lobehub/icons` 5.15.0.
+- Centered the separator in the dual-provider menu-bar indicator precisely.
+- Increased Claude background refresh cadence to approximately every 5-6 minutes.
+
 ## 2.3.0 - 2026-08-08
 
 - Replaced the removed custom Codex artwork with official `Codex.Color` from `@lobehub/icons` 5.15.0.

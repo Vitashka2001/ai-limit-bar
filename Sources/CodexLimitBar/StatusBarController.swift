@@ -755,7 +755,7 @@ private enum LimitStatusImage {
                 draw(limits[0], in: NSRect(x: 0, y: 0, width: segmentWidth, height: size.height))
                 draw(limits[1], in: NSRect(x: segmentWidth + segmentGap, y: 0, width: segmentWidth, height: size.height))
                 NSColor.separatorColor.withAlphaComponent(0.8).setFill()
-                NSRect(x: segmentWidth + segmentGap / 2, y: 4, width: 1, height: 12).fill()
+                NSRect(x: size.width / 2 - 0.5, y: 4, width: 1, height: 12).fill()
             } else if let limit = limits.first {
                 draw(limit, in: NSRect(origin: .zero, size: size))
             } else {
@@ -829,11 +829,7 @@ private enum ProviderIcon {
 
     static func draw(_ provider: AIProvider, in rect: NSRect, color: NSColor) {
         if let image = sourceImage(for: provider) {
-            if provider == .codex {
-                image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: color.alphaComponent)
-            } else {
-                draw(image, in: rect, color: color)
-            }
+            draw(image, in: rect, color: color)
             return
         }
         let configuration = NSImage.SymbolConfiguration(pointSize: rect.height, weight: .medium)
@@ -857,7 +853,7 @@ private enum ProviderIcon {
             subdirectory: "ProviderIcons"
         ) else { return nil }
         let image = NSImage(contentsOf: url)
-        image?.isTemplate = provider != .codex
+        image?.isTemplate = true
         return image
     }
 

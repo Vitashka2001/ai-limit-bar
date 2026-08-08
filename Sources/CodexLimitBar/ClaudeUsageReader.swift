@@ -19,7 +19,7 @@ enum ClaudeUsageReadResult: Equatable, Sendable {
 }
 
 enum ClaudeUsageReader {
-    static let freshnessInterval: TimeInterval = 15 * 60
+    static let freshnessInterval: TimeInterval = 5 * 60
 
     static func read(fileManager: FileManager = .default) -> ClaudeUsageReadResult {
         let applicationURL = URL(fileURLWithPath: "/Applications/Claude.app")
