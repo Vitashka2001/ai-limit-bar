@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.4.1 - 2026-08-08
+
+- Corrected vertical orientation of the Codex terminal glyph in flipped AppKit views.
+- Shortened Claude source and freshness text so it fits without middle truncation.
+- Renamed the Claude control to describe automatic limit updates clearly.
+- Prefers fresh Claude Code status-line data and keeps Desktop closed while it is current.
+- Restored Claude Desktop only as a PID-tracked fallback with a 30-second timeout and forced cleanup.
+
 ## 2.4.0 - 2026-08-08
 
 - Replaced the cloud-shaped Codex mark with a clean `>_` glyph derived from the official LobeHub geometry.

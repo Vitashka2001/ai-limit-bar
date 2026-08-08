@@ -21,18 +21,18 @@ AI Limit Bar shows the most relevant fresh quota in the menu bar and all detecte
 - green at 50–100%, yellow at 20–49%, and red below 20%;
 - supports Codex account switching and opens Claude Desktop directly at profile settings;
 - receives live Claude limits from the official Claude Code status-line interface;
-- can use Claude Desktop's local cache as a passive fallback without launching Desktop;
+- automatically uses a brief Claude Desktop refresh only when fresh Claude Code data is unavailable;
 - marks stale Claude data instead of presenting it as current;
 - English, Ukrainian, and Russian interface languages;
 - manual refresh, monitoring pause, and launch at login.
 
 ## Data Sources
 
-Codex data comes from the locally installed `codex app-server`. For Claude, the preferred source is the official Claude Code [`statusLine`](https://code.claude.com/docs/en/statusline) interface. After each Claude response it supplies the 5-hour and 7-day percentages and reset times. AI Limit Bar stores only those limit values and timestamps, then refreshes the menu bar immediately.
+Codex data comes from the locally installed `codex app-server`. For Claude, the preferred source is the official Claude Code [`statusLine`](https://code.claude.com/docs/en/statusline) interface. When the current Claude Code experience runs the status line, it supplies the 5-hour and 7-day percentages and reset times after a response. AI Limit Bar stores only those limit values and timestamps, then refreshes the menu bar immediately.
 
-Enable **Claude Code live updates** once to install the local bridge in `~/.claude/settings.json`. It is available to Claude.ai Pro/Max subscribers after the first official Claude Code response. The bridge does not make network requests and never reads passwords, OAuth tokens, cookies, or API keys. If another status line is already configured, AI Limit Bar leaves it unchanged.
+Enable **Automatic Claude updates** once to install the local bridge in `~/.claude/settings.json`. It is available to Claude.ai Pro/Max subscribers after the first response in a Claude Code experience that runs `statusLine`. The VS Code side panel may not run it; in that case the Desktop fallback is used automatically. The bridge does not make network requests and never reads passwords, OAuth tokens, cookies, or API keys. If another status line is already configured, AI Limit Bar leaves it unchanged.
 
-Claude Desktop's `plan-usage-history.json` remains a passive fallback when Desktop is opened by the user. AI Limit Bar never launches Claude Desktop. Third-party IDE extensions such as Cline can use separate API billing and may not expose Claude.ai subscription limits.
+When fresh Claude Code data is unavailable, automatic updates can briefly launch Claude Desktop hidden and read its `plan-usage-history.json`. AI Limit Bar tracks only the process it started, requests termination after fresh data arrives or after 30 seconds, and force-quits that same process if normal termination does not complete. Third-party IDE extensions such as Cline can use separate API billing and may not expose Claude.ai subscription limits.
 
 ## Requirements And Installation
 
@@ -40,14 +40,14 @@ Claude Desktop's `plan-usage-history.json` remains a passive fallback when Deskt
 - Codex or the official Codex editor extension for Codex limits;
 - official Claude Code for live Claude limits, or Claude Desktop for cached fallback data.
 
-Download `AI-Limit-Bar-2.4.0.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.4.1.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 
 ## Controls
 
 - **Limit monitoring** pauses all background updates.
-- **Claude Code live updates** adds or removes the safe local status-line bridge.
+- **Automatic Claude updates** prefers fresh Claude Code data and uses Desktop only as a fallback.
 - **Switch Codex account...** opens Codex's official browser sign-in.
 - **Switch Claude account...** opens Claude Desktop profile settings for sign-out and account switching.
 - **Language** changes the interface language and restarts the app.

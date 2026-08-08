@@ -1,5 +1,5 @@
 "menu.monitoring" = "Моніторинг лімітів";
-"menu.claudeCodeIntegration" = "Онлайн-оновлення Claude Code";
+"menu.claudeAutomaticRefresh" = "Автооновлення Claude";
 "menu.switchAccount" = "Змінити обліковий запис Codex...";
 "menu.switchClaudeAccount" = "Змінити обліковий запис Claude...";
 "menu.cancelSwitch" = "Скасувати зміну облікового запису";
@@ -47,13 +47,14 @@
 "gauge.monitoringStopped.subtitle" = "Фонове опитування вимкнено";
 
 "dashboard.monitoringStopped" = "Моніторинг призупинено";
-"claude.codeUpdated" = "Claude Code оновив дані %@";
-"claude.codeStale" = "Дані Claude Code від %@ · очікування активності";
-"claude.desktopUpdated" = "Кеш Desktop оновлено %@";
-"claude.desktopStale" = "Кеш Desktop від %@ · відкрийте Claude Desktop для оновлення";
-"claude.waitingForCode" = "Очікування активності Claude Code";
-"claude.noLiveSource" = "Увімкніть онлайн-оновлення Claude Code або відкрийте Claude Desktop";
-"claude.noData" = "Даних про використання Claude ще немає";
+"claude.codeUpdated" = "Claude Code · оновлено %@";
+"claude.codeStale" = "Claude Code · %@ · очікування";
+"claude.desktopUpdated" = "Desktop · оновлено %@";
+"claude.desktopStale" = "Desktop · %@ · дані застаріли";
+"claude.refreshingViaDesktop" = "Оновлення через Desktop…";
+"claude.waitingForCode" = "Очікування першої відповіді Claude Code";
+"claude.noLiveSource" = "Джерело автооновлення Claude не знайдено";
+"claude.noData" = "Очікування даних про використання Claude";
 "claude.failed" = "Не вдалося прочитати локальні дані Claude";
 
 "account.connecting" = "Обліковий запис: підключення";
@@ -82,7 +83,7 @@
 "alert.claudeOpen.title" = "Не вдалося відкрити Claude Desktop";
 "alert.claudeOpen.message" = "Відкрийте Claude Desktop вручну, а потім вийдіть і змініть обліковий запис у налаштуваннях профілю.";
 "alert.claudeIntegrationConflict.title" = "Рядок стану Claude Code уже налаштовано";
-"alert.claudeIntegrationConflict.message" = "AI Limit Bar не замінив наявний рядок стану. Видаліть його в налаштуваннях Claude Code перед увімкненням онлайн-оновлень.";
+"alert.claudeIntegrationConflict.message" = "AI Limit Bar не замінив наявний рядок стану. Видаліть його в налаштуваннях Claude Code перед увімкненням автооновлення лімітів.";
 "alert.claudeIntegrationFailed.title" = "Не вдалося оновити налаштування Claude Code";
 "alert.claudeIntegrationFailed.message" = "Перевірте доступ до ~/.claude/settings.json і повторіть спробу.";
 "alert.ok" = "OK";

@@ -1,5 +1,5 @@
 "menu.monitoring" = "Limit monitoring";
-"menu.claudeCodeIntegration" = "Claude Code live updates";
+"menu.claudeAutomaticRefresh" = "Automatic Claude updates";
 "menu.switchAccount" = "Switch Codex account...";
 "menu.switchClaudeAccount" = "Switch Claude account...";
 "menu.cancelSwitch" = "Cancel account switch";
@@ -47,13 +47,14 @@
 "gauge.monitoringStopped.subtitle" = "Background polling is off";
 
 "dashboard.monitoringStopped" = "Monitoring is paused";
-"claude.codeUpdated" = "Claude Code updated %@";
-"claude.codeStale" = "Claude Code data from %@ · waiting for activity";
-"claude.desktopUpdated" = "Desktop cache updated %@";
-"claude.desktopStale" = "Desktop cache from %@ · open Claude Desktop to refresh";
-"claude.waitingForCode" = "Waiting for Claude Code activity";
-"claude.noLiveSource" = "Enable Claude Code live updates or open Claude Desktop";
-"claude.noData" = "No Claude usage data yet";
+"claude.codeUpdated" = "Claude Code · updated %@";
+"claude.codeStale" = "Claude Code · %@ · waiting";
+"claude.desktopUpdated" = "Desktop · updated %@";
+"claude.desktopStale" = "Desktop · %@ · stale";
+"claude.refreshingViaDesktop" = "Updating via Desktop…";
+"claude.waitingForCode" = "Waiting for the first Claude Code response";
+"claude.noLiveSource" = "No automatic Claude source found";
+"claude.noData" = "Waiting for Claude usage data";
 "claude.failed" = "Could not read Claude's local usage data";
 
 "account.connecting" = "Account: connecting";
@@ -82,7 +83,7 @@
 "alert.claudeOpen.title" = "Could not open Claude Desktop";
 "alert.claudeOpen.message" = "Open Claude Desktop manually, then use Profile settings to sign out and switch accounts.";
 "alert.claudeIntegrationConflict.title" = "Claude Code status line is already configured";
-"alert.claudeIntegrationConflict.message" = "AI Limit Bar did not replace your existing status line. Remove it in Claude Code settings before enabling live updates.";
+"alert.claudeIntegrationConflict.message" = "AI Limit Bar did not replace your existing status line. Remove it in Claude Code settings before enabling automatic limit updates.";
 "alert.claudeIntegrationFailed.title" = "Could not update Claude Code settings";
 "alert.claudeIntegrationFailed.message" = "Check access to ~/.claude/settings.json and try again.";
 "alert.ok" = "OK";

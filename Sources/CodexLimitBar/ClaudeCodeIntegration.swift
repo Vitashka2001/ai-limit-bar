@@ -20,6 +20,30 @@ enum ClaudeCodeIntegration {
         return command.contains(commandArgument)
     }
 
+    static var isAvailable: Bool {
+        let fileManager = FileManager.default
+        let home = fileManager.homeDirectoryForCurrentUser
+        let executableURLs = [
+            URL(fileURLWithPath: "/opt/homebrew/bin/claude"),
+            URL(fileURLWithPath: "/usr/local/bin/claude"),
+            home.appendingPathComponent(".local/bin/claude"),
+            home.appendingPathComponent(".claude/local/claude"),
+        ]
+        if executableURLs.contains(where: { fileManager.isExecutableFile(atPath: $0.path) }) {
+            return true
+        }
+
+        let extensionRoots = [
+            home.appendingPathComponent(".vscode/extensions"),
+            home.appendingPathComponent(".vscode-insiders/extensions"),
+            home.appendingPathComponent(".cursor/extensions"),
+        ]
+        return extensionRoots.contains { root in
+            guard let entries = try? fileManager.contentsOfDirectory(atPath: root.path) else { return false }
+            return entries.contains { $0.lowercased().hasPrefix("anthropic.claude-code-") }
+        }
+    }
+
     static func install(executableURL: URL) -> InstallResult {
         var root = readSettings() ?? [:]
         if let statusLine = root["statusLine"] as? [String: Any],
