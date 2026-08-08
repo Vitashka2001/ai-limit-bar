@@ -19,6 +19,7 @@ AI Limit Bar shows the most relevant fresh quota in the menu bar and all detecte
 - shows every detected 5-hour and weekly quota;
 - green at 50–100%, yellow at 20–49%, and red below 20%;
 - supports Codex account switching and opens Claude Desktop directly at profile settings;
+- can briefly wake Claude Desktop in the background to keep its usage cache current;
 - marks stale Claude data instead of presenting it as current;
 - English, Ukrainian, and Russian interface languages;
 - manual refresh, monitoring pause, and launch at login.
@@ -27,9 +28,9 @@ AI Limit Bar shows the most relevant fresh quota in the menu bar and all detecte
 
 Codex data comes from the locally installed `codex app-server`. Claude data comes from Claude Desktop's local `plan-usage-history.json` cache. The app never reads browser cookies, session storage, passwords, tokens, or API keys.
 
-Claude Desktop must run to keep its local usage cache fresh. The cache does not contain reset timestamps, so AI Limit Bar shows its update time instead. Claude data older than 15 minutes remains visible as cached data but is excluded from automatic menu-bar selection.
+With **Keep Claude data current** enabled, AI Limit Bar briefly launches Claude Desktop in the background whenever its cache becomes stale. Claude performs the authenticated usage request itself; after fresh data appears, AI Limit Bar closes only the hidden instance it started. The cache does not contain reset timestamps, so the dashboard shows its update time instead. Claude data older than 15 minutes remains visible but is excluded from automatic menu-bar selection.
 
-Claude Code usage in a supported IDE can count toward the same subscription limits, but AI Limit Bar currently reads the Claude Desktop cache. Open Claude Desktop whenever the displayed Claude data needs to refresh. Third-party IDE extensions using an API provider may have separate billing and limits.
+Claude Code usage in a supported IDE can count toward the same subscription limits, while AI Limit Bar reads the Claude Desktop cache. Automatic background refresh removes the need to open Desktop manually. Third-party IDE extensions using an API provider may have separate billing and limits.
 
 ## Requirements And Installation
 
@@ -37,13 +38,14 @@ Claude Code usage in a supported IDE can count toward the same subscription limi
 - Codex or the official Codex editor extension for Codex limits;
 - Claude Desktop for Claude limits.
 
-Download `AI-Limit-Bar-2.1.2.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.2.0.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 
 ## Controls
 
 - **Limit monitoring** pauses all background updates.
+- **Keep Claude data current** controls automatic hidden Claude Desktop refreshes.
 - **Switch Codex account...** opens Codex's official browser sign-in.
 - **Switch Claude account...** opens Claude Desktop profile settings for sign-out and account switching.
 - **Language** changes the interface language and restarts the app.

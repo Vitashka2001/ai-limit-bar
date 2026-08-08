@@ -5,14 +5,17 @@ import OSLog
 @MainActor
 final class StatusBarController: NSObject, NSMenuDelegate {
     private static let monitoringDefaultsKey = "monitoringEnabled"
+    private static let claudeBackgroundRefreshDefaultsKey = "claudeBackgroundRefreshEnabled"
     private static let minimumContentWidth: CGFloat = 420
     private static let recentActivityInterval: TimeInterval = 15 * 60
+    private static let claudeLaunchRetryInterval: TimeInterval = 5 * 60
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: 90)
     private let client = CodexAppServerClient()
     private let dashboardView = LimitsDashboardView(frame: NSRect(x: 0, y: 0, width: 420, height: 235))
     private let logger = Logger(subsystem: "com.vitashka2001.AILimitBar", category: "limits")
     private let monitoringItem = NSMenuItem(title: L10n.string("menu.monitoring"), action: nil, keyEquivalent: "")
+    private let claudeBackgroundRefreshItem = NSMenuItem(title: L10n.string("menu.claudeBackgroundRefresh"), action: nil, keyEquivalent: "")
     private let switchAccountItem = NSMenuItem(title: L10n.string("menu.switchAccount"), action: nil, keyEquivalent: "")
     private let switchClaudeAccountItem = NSMenuItem(title: L10n.string("menu.switchClaudeAccount"), action: nil, keyEquivalent: "")
     private let launchAtLoginItem = NSMenuItem(title: L10n.string("menu.launchAtLogin"), action: nil, keyEquivalent: "")
@@ -24,6 +27,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var claudeResult: ClaudeUsageReadResult = .noData
     private var account: CodexAccount?
     private var monitoringEnabled = true
+    private var claudeBackgroundRefreshEnabled = true
+    private var claudeLastLaunchAttemptAt: Date?
+    private var claudeWasLaunchedForRefresh = false
+    private var claudeRefreshChecksRemaining = 0
     private var clientConnected = false
     private var loginInProgress = false
     private var codexUsageSignature: [String: Double] = [:]
@@ -42,6 +49,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             object: nil
         )
         LaunchAtLoginManager.migrateIfNeeded()
+        let storedClaudeRefresh = UserDefaults.standard.object(
+            forKey: Self.claudeBackgroundRefreshDefaultsKey
+        ) as? Bool
+        claudeBackgroundRefreshEnabled = storedClaudeRefresh ?? true
+        claudeBackgroundRefreshItem.state = claudeBackgroundRefreshEnabled ? .on : .off
         let storedValue = UserDefaults.standard.object(forKey: Self.monitoringDefaultsKey) as? Bool
         setMonitoringEnabled(storedValue ?? true, persist: false)
         refreshLaunchAtLoginState()
@@ -64,10 +76,16 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         configureMenuItem(monitoringItem, action: #selector(toggleMonitoring), symbol: "chart.bar.fill")
+        configureMenuItem(
+            claudeBackgroundRefreshItem,
+            action: #selector(toggleClaudeBackgroundRefresh),
+            symbol: "arrow.clockwise.circle"
+        )
         configureProviderMenuItem(switchAccountItem, action: #selector(switchAccount), provider: .codex)
         configureProviderMenuItem(switchClaudeAccountItem, action: #selector(switchClaudeAccount), provider: .claude)
         configureMenuItem(launchAtLoginItem, action: #selector(toggleLaunchAtLogin), symbol: "power")
         menu.addItem(monitoringItem)
+        menu.addItem(claudeBackgroundRefreshItem)
         menu.addItem(switchAccountItem)
         menu.addItem(switchClaudeAccountItem)
         menu.addItem(launchAtLoginItem)
@@ -196,6 +214,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         claudeResult = ClaudeUsageReader.read()
         render()
         updateActionAvailability()
+        refreshClaudeInBackgroundIfNeeded()
     }
 
     private func render() {
@@ -240,7 +259,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func claudeDashboardState() -> ProviderDashboardState {
         switch claudeResult {
         case .available(let snapshot):
-            let key = snapshot.isFresh() ? "claude.updated" : "claude.stale"
+            let key: String
+            if snapshot.isFresh() {
+                key = "claude.updated"
+            } else {
+                key = claudeBackgroundRefreshEnabled ? "claude.staleAuto" : "claude.stale"
+            }
             return ProviderDashboardState(
                 provider: .claude,
                 status: L10n.format(key, Self.dateFormatter.string(from: snapshot.limits.fetchedAt)),
@@ -250,7 +274,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         case .notInstalled:
             return ProviderDashboardState(provider: .claude, status: L10n.string("claude.notInstalled"), windows: [])
         case .noData:
-            return ProviderDashboardState(provider: .claude, status: L10n.string("claude.noData"), windows: [])
+            let key = claudeBackgroundRefreshEnabled ? "claude.noDataAuto" : "claude.noData"
+            return ProviderDashboardState(provider: .claude, status: L10n.string(key), windows: [])
         case .failed:
             return ProviderDashboardState(provider: .claude, status: L10n.string("claude.failed"), windows: [])
         }
@@ -341,6 +366,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         refreshItem.isEnabled = monitoringEnabled
         switchAccountItem.isEnabled = monitoringEnabled && (clientConnected || loginInProgress)
         switchClaudeAccountItem.isEnabled = monitoringEnabled && claudeDesktopIsInstalled
+        claudeBackgroundRefreshItem.isEnabled = monitoringEnabled && claudeDesktopIsInstalled
     }
 
     private var claudeDesktopIsInstalled: Bool {
@@ -356,6 +382,87 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleMonitoring() {
         setMonitoringEnabled(!monitoringEnabled, persist: true)
+    }
+
+    @objc private func toggleClaudeBackgroundRefresh() {
+        claudeBackgroundRefreshEnabled.toggle()
+        claudeBackgroundRefreshItem.state = claudeBackgroundRefreshEnabled ? .on : .off
+        UserDefaults.standard.set(
+            claudeBackgroundRefreshEnabled,
+            forKey: Self.claudeBackgroundRefreshDefaultsKey
+        )
+        if claudeBackgroundRefreshEnabled {
+            refreshClaude()
+        } else {
+            render()
+        }
+    }
+
+    private func refreshClaudeInBackgroundIfNeeded(now: Date = Date()) {
+        guard monitoringEnabled, claudeBackgroundRefreshEnabled, claudeDesktopIsInstalled else { return }
+        let needsRefresh: Bool
+        switch claudeResult {
+        case .available(let snapshot): needsRefresh = !snapshot.isFresh(at: now)
+        case .noData, .failed: needsRefresh = true
+        case .notInstalled: needsRefresh = false
+        }
+        guard needsRefresh else { return }
+        guard NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.anthropic.claudefordesktop"
+        ).isEmpty else { return }
+        if let lastAttempt = claudeLastLaunchAttemptAt,
+           now.timeIntervalSince(lastAttempt) < Self.claudeLaunchRetryInterval {
+            return
+        }
+
+        claudeLastLaunchAttemptAt = now
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-gj", "-a", "Claude"]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            claudeWasLaunchedForRefresh = true
+            claudeRefreshChecksRemaining = 4
+            scheduleClaudeBackgroundRefreshCheck()
+        } catch {
+            logger.error("Could not launch Claude Desktop in background: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func scheduleClaudeBackgroundRefreshCheck() {
+        Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.completeClaudeBackgroundRefresh() }
+        }
+    }
+
+    private func completeClaudeBackgroundRefresh() {
+        guard claudeWasLaunchedForRefresh else { return }
+        claudeResult = ClaudeUsageReader.read()
+        render()
+        updateActionAvailability()
+
+        let isFresh: Bool
+        if case .available(let snapshot) = claudeResult {
+            isFresh = snapshot.isFresh()
+        } else {
+            isFresh = false
+        }
+        claudeRefreshChecksRemaining -= 1
+        if !isFresh, claudeRefreshChecksRemaining > 0 {
+            scheduleClaudeBackgroundRefreshCheck()
+            return
+        }
+
+        let applications = NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.anthropic.claudefordesktop"
+        )
+        if let application = applications.first, application.isHidden, !application.isActive {
+            application.terminate()
+        }
+        claudeWasLaunchedForRefresh = false
+        claudeRefreshChecksRemaining = 0
     }
 
     @objc private func switchAccount() {
@@ -655,7 +762,14 @@ private enum ProviderIcon {
     static func draw(_ provider: AIProvider, in rect: NSRect, color: NSColor) {
         if let image = sourceImage(for: provider) {
             if provider == .codex {
+                NSGraphicsContext.saveGraphicsState()
+                NSBezierPath(
+                    roundedRect: rect,
+                    xRadius: rect.width * 0.22,
+                    yRadius: rect.height * 0.22
+                ).addClip()
                 image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: color.alphaComponent)
+                NSGraphicsContext.restoreGraphicsState()
             } else {
                 draw(image, in: rect, color: color)
             }
@@ -678,7 +792,7 @@ private enum ProviderIcon {
     private static func sourceImage(for provider: AIProvider) -> NSImage? {
         guard let url = Bundle.main.url(
             forResource: provider.iconAssetName,
-            withExtension: "svg",
+            withExtension: provider.iconAssetExtension,
             subdirectory: "ProviderIcons"
         ) else { return nil }
         let image = NSImage(contentsOf: url)

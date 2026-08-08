@@ -1,4 +1,5 @@
 "menu.monitoring" = "Моніторинг лімітів";
+"menu.claudeBackgroundRefresh" = "Оновлювати дані Claude у фоні";
 "menu.switchAccount" = "Змінити обліковий запис Codex...";
 "menu.switchClaudeAccount" = "Змінити обліковий запис Claude...";
 "menu.cancelSwitch" = "Скасувати зміну облікового запису";
@@ -48,8 +49,10 @@
 "dashboard.monitoringStopped" = "Моніторинг призупинено";
 "claude.updated" = "Локальні дані оновлено %@";
 "claude.stale" = "Кеш від %@ · відкрийте Claude Desktop для оновлення";
+"claude.staleAuto" = "Кеш від %@ · оновлюємо через Claude Desktop";
 "claude.notInstalled" = "Claude Desktop не встановлено";
 "claude.noData" = "Відкрийте Claude Desktop, щоб завантажити локальні дані";
+"claude.noDataAuto" = "Запускаємо Claude Desktop для завантаження даних";
 "claude.failed" = "Не вдалося прочитати локальні дані Claude";
 
 "account.connecting" = "Обліковий запис: підключення";

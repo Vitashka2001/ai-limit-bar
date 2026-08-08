@@ -19,6 +19,13 @@ enum AIProvider: String, CaseIterable, Sendable {
         }
     }
 
+    var iconAssetExtension: String {
+        switch self {
+        case .codex: return "webp"
+        case .claude: return "svg"
+        }
+    }
+
     var fallbackSymbolName: String {
         switch self {
         case .codex: return "chevron.left.forwardslash.chevron.right"

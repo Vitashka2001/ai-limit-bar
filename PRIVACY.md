@@ -15,6 +15,8 @@ The app:
 
 Claude's local cache does not contain email, plan type, or reset times. Data older than 15 minutes is marked as cached and is not used for automatic status-bar selection.
 
+When **Keep Claude data current** is enabled, AI Limit Bar may launch Claude Desktop hidden so the official app can refresh its own cache. AI Limit Bar never reads Claude's session credentials and closes only the hidden Claude instance it launched itself.
+
 When the user switches Codex accounts, Codex opens its official browser authentication flow. The new account becomes active for other local Codex tools on the same Mac.
 
 The user can stop all polling through **Limit monitoring** or close the app through **Quit completely**.

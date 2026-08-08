@@ -1,4 +1,5 @@
 "menu.monitoring" = "Мониторинг лимитов";
+"menu.claudeBackgroundRefresh" = "Обновлять данные Claude в фоне";
 "menu.switchAccount" = "Сменить аккаунт Codex...";
 "menu.switchClaudeAccount" = "Сменить аккаунт Claude...";
 "menu.cancelSwitch" = "Отменить смену аккаунта";
@@ -48,8 +49,10 @@
 "dashboard.monitoringStopped" = "Мониторинг приостановлен";
 "claude.updated" = "Локальные данные обновлены %@";
 "claude.stale" = "Кэш от %@ · откройте Claude Desktop для обновления";
+"claude.staleAuto" = "Кэш от %@ · обновляем через Claude Desktop";
 "claude.notInstalled" = "Claude Desktop не установлен";
 "claude.noData" = "Откройте Claude Desktop, чтобы загрузить локальные данные";
+"claude.noDataAuto" = "Запускаем Claude Desktop для загрузки данных";
 "claude.failed" = "Не удалось прочитать локальные данные Claude";
 
 "account.connecting" = "Аккаунт: подключение";

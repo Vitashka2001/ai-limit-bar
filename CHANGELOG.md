@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.0 - 2026-08-08
+
+- Restored the complete supplied Codex artwork instead of extracting its cloud silhouette.
+- Added optional automatic Claude refresh through a brief hidden Claude Desktop launch.
+- Kept Claude credentials private by letting the official app perform its own authenticated request.
+- Automatically closes only the hidden Claude instance started by AI Limit Bar.
+
 ## 2.1.2 - 2026-08-08
 
 - Rebuilt the Codex provider mark from the supplied SVG and WebP artwork.
