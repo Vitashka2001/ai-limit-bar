@@ -1,5 +1,6 @@
 "menu.monitoring" = "Моніторинг лімітів";
 "menu.switchAccount" = "Змінити обліковий запис Codex...";
+"menu.switchClaudeAccount" = "Змінити обліковий запис Claude...";
 "menu.cancelSwitch" = "Скасувати зміну облікового запису";
 "menu.startingLogin" = "Запуск входу...";
 "menu.launchAtLogin" = "Запускати під час входу";
@@ -12,6 +13,7 @@
 "window.limit" = "Ліміт";
 "window.short.five" = "5г";
 "window.short.week" = "7д";
+"window.short.limit" = "лім";
 "window.weekAllModels" = "7 днів · усі моделі";
 "window.weekOpus" = "7 днів · Opus";
 "window.weekOAuthApps" = "7 днів · підключені застосунки";
@@ -73,6 +75,8 @@
 "alert.cancel" = "Скасувати";
 "alert.launchAtLogin.title" = "Не вдалося змінити автозапуск";
 "alert.restart.title" = "Не вдалося перезапустити застосунок";
+"alert.claudeOpen.title" = "Не вдалося відкрити Claude Desktop";
+"alert.claudeOpen.message" = "Відкрийте Claude Desktop вручну, а потім вийдіть і змініть обліковий запис у налаштуваннях профілю.";
 "alert.ok" = "OK";
 
 "error.executableNotFound" = "Виконуваний файл Codex не знайдено";

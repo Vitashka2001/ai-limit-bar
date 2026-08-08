@@ -1,5 +1,6 @@
 "menu.monitoring" = "Limit monitoring";
 "menu.switchAccount" = "Switch Codex account...";
+"menu.switchClaudeAccount" = "Switch Claude account...";
 "menu.cancelSwitch" = "Cancel account switch";
 "menu.startingLogin" = "Starting sign-in...";
 "menu.launchAtLogin" = "Launch at login";
@@ -12,6 +13,7 @@
 "window.limit" = "Limit";
 "window.short.five" = "5h";
 "window.short.week" = "7d";
+"window.short.limit" = "lim";
 "window.weekAllModels" = "7-day · all models";
 "window.weekOpus" = "7-day · Opus";
 "window.weekOAuthApps" = "7-day · connected apps";
@@ -73,6 +75,8 @@
 "alert.cancel" = "Cancel";
 "alert.launchAtLogin.title" = "Could not change launch at login";
 "alert.restart.title" = "Could not restart the app";
+"alert.claudeOpen.title" = "Could not open Claude Desktop";
+"alert.claudeOpen.message" = "Open Claude Desktop manually, then use Profile settings to sign out and switch accounts.";
 "alert.ok" = "OK";
 
 "error.executableNotFound" = "Codex executable not found";

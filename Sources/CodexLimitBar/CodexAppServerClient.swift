@@ -137,7 +137,7 @@ final class CodexAppServerClient: @unchecked Sendable {
                             "title": "AI Limit Bar",
                         "version": Bundle.main.object(
                             forInfoDictionaryKey: "CFBundleShortVersionString"
-                            ) as? String ?? "2.0.0",
+                            ) as? String ?? "2.1.0",
                     ],
                 ],
             ])

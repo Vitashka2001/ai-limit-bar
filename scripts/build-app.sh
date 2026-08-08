@@ -54,6 +54,7 @@ fi
 
 cp "$PLIST" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
+cp -R "$ROOT/Resources/ProviderIcons" "$CONTENTS/Resources/"
 for LANGUAGE_DIR in "$ROOT"/Resources/*.lproj; do
     cp -R "$LANGUAGE_DIR" "$CONTENTS/Resources/"
 done

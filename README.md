@@ -18,7 +18,7 @@ AI Limit Bar shows the most relevant fresh quota in the menu bar and all detecte
 - always prioritizes a fresh critical limit below 20%;
 - shows every detected 5-hour and weekly quota;
 - green at 50–100%, yellow at 20–49%, and red below 20%;
-- displays Codex account details and supports account switching;
+- supports Codex account switching and opens Claude Desktop directly at profile settings;
 - marks stale Claude data instead of presenting it as current;
 - English, Ukrainian, and Russian interface languages;
 - manual refresh, monitoring pause, and launch at login.
@@ -35,7 +35,7 @@ Claude Desktop must run to keep its local usage cache fresh. The cache does not 
 - Codex or the official Codex editor extension for Codex limits;
 - Claude Desktop for Claude limits.
 
-Download `AI-Limit-Bar-2.0.0.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.1.0.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 
@@ -43,6 +43,7 @@ The public build is locally signed but not notarized. If macOS blocks the first 
 
 - **Limit monitoring** pauses all background updates.
 - **Switch Codex account...** opens Codex's official browser sign-in.
+- **Switch Claude account...** opens Claude Desktop profile settings for sign-out and account switching.
 - **Language** changes the interface language and restarts the app.
 - **Launch at login** controls automatic startup.
 - **Quit completely** closes the app.
@@ -58,5 +59,7 @@ swift test
 ```
 
 The app is written to `dist/AI Limit Bar.app`. See [PRIVACY.md](PRIVACY.md) for the full privacy note.
+
+Codex and Claude provider logos come from [LobeHub Icons](https://github.com/lobehub/lobe-icons) `@lobehub/icons-static-svg` 1.94.0 under the MIT License. The bundled license is in `Resources/ProviderIcons/LICENSE`.
 
 AI Limit Bar is an independent open-source utility and is not affiliated with OpenAI or Anthropic. Released under the [MIT License](LICENSE).

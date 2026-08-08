@@ -8,12 +8,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private static let minimumContentWidth: CGFloat = 420
     private static let recentActivityInterval: TimeInterval = 15 * 60
 
-    private let statusItem = NSStatusBar.system.statusItem(withLength: 78)
+    private let statusItem = NSStatusBar.system.statusItem(withLength: 90)
     private let client = CodexAppServerClient()
-    private let dashboardView = LimitsDashboardView(frame: NSRect(x: 0, y: 0, width: 420, height: 310))
+    private let dashboardView = LimitsDashboardView(frame: NSRect(x: 0, y: 0, width: 420, height: 235))
     private let logger = Logger(subsystem: "com.vitashka2001.AILimitBar", category: "limits")
     private let monitoringItem = NSMenuItem(title: L10n.string("menu.monitoring"), action: nil, keyEquivalent: "")
     private let switchAccountItem = NSMenuItem(title: L10n.string("menu.switchAccount"), action: nil, keyEquivalent: "")
+    private let switchClaudeAccountItem = NSMenuItem(title: L10n.string("menu.switchClaudeAccount"), action: nil, keyEquivalent: "")
     private let launchAtLoginItem = NSMenuItem(title: L10n.string("menu.launchAtLogin"), action: nil, keyEquivalent: "")
     private let languageItem = NSMenuItem(title: L10n.string("menu.language"), action: nil, keyEquivalent: "")
     private let refreshItem = NSMenuItem(title: L10n.string("menu.refresh"), action: nil, keyEquivalent: "r")
@@ -64,9 +65,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         configureMenuItem(monitoringItem, action: #selector(toggleMonitoring), symbol: "chart.bar.fill")
         configureMenuItem(switchAccountItem, action: #selector(switchAccount), symbol: "person.crop.circle")
+        configureProviderMenuItem(switchClaudeAccountItem, action: #selector(switchClaudeAccount), provider: .claude)
         configureMenuItem(launchAtLoginItem, action: #selector(toggleLaunchAtLogin), symbol: "power")
         menu.addItem(monitoringItem)
         menu.addItem(switchAccountItem)
+        menu.addItem(switchClaudeAccountItem)
         menu.addItem(launchAtLoginItem)
 
         configureLanguageMenu()
@@ -92,6 +95,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             image.isTemplate = true
             item.image = image
         }
+    }
+
+    private func configureProviderMenuItem(_ item: NSMenuItem, action: Selector, provider: AIProvider) {
+        item.target = self
+        item.action = action
+        item.image = ProviderIcon.menuImage(for: provider)
     }
 
     private func configureLanguageMenu() {
@@ -186,6 +195,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func refreshClaude() {
         claudeResult = ClaudeUsageReader.read()
         render()
+        updateActionAvailability()
     }
 
     private func render() {
@@ -330,6 +340,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func updateActionAvailability() {
         refreshItem.isEnabled = monitoringEnabled
         switchAccountItem.isEnabled = monitoringEnabled && (clientConnected || loginInProgress)
+        switchClaudeAccountItem.isEnabled = monitoringEnabled && claudeDesktopIsInstalled
+    }
+
+    private var claudeDesktopIsInstalled: Bool {
+        if case .notInstalled = claudeResult { return false }
+        return true
     }
 
     @objc private func refreshNow() {
@@ -360,6 +376,17 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         switchAccountItem.title = L10n.string("menu.startingLogin")
         updateActionAvailability()
         client.startChatGPTLogin()
+    }
+
+    @objc private func switchClaudeAccount() {
+        guard let url = URL(string: "claude://claude.ai/settings/profile"),
+              NSWorkspace.shared.open(url) else {
+            showAlert(
+                title: L10n.string("alert.claudeOpen.title"),
+                message: L10n.string("alert.claudeOpen.message")
+            )
+            return
+        }
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -472,63 +499,53 @@ private final class LimitsDashboardView: NSView {
     override var isFlipped: Bool { true }
 
     var desiredHeight: CGFloat {
-        let providerHeight = providers.reduce(CGFloat.zero) { result, provider in
+        providers.reduce(CGFloat.zero) { result, provider in
             result + 50 + CGFloat(provider.windows.count) * 35
         }
-        return 87 + providerHeight
     }
 
     func update(active: DisplayedLimit?, providers: [ProviderDashboardState]) {
         self.active = active
-        self.providers = providers
+        self.providers = providers.sorted { left, right in
+            if left.provider == active?.provider { return true }
+            if right.provider == active?.provider { return false }
+            return AIProvider.allCases.firstIndex(of: left.provider) ?? 0
+                < AIProvider.allCases.firstIndex(of: right.provider) ?? 0
+        }
         setFrameSize(NSSize(width: frame.width, height: desiredHeight))
         needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        drawActiveLimit()
-        var y: CGFloat = 87
+        var y: CGFloat = 0
         for provider in providers {
             y = drawProvider(provider, at: y)
         }
     }
 
-    private func drawActiveLimit() {
-        let title: String
-        let subtitle: String
-        let percent: String
-        if let active {
-            title = active.provider.displayName
-            subtitle = Self.windowLabel(active.window)
-            percent = "\(Int(active.window.remainingPercent.rounded()))%"
-            drawSymbol(active.provider.symbolName, in: NSRect(x: 16, y: 13, width: 19, height: 19), color: .labelColor)
-        } else {
-            title = L10n.string("limits.noFreshData")
-            subtitle = L10n.string("limits.noFreshData.subtitle")
-            percent = "—"
-            drawSymbol("chart.bar", in: NSRect(x: 16, y: 13, width: 19, height: 19), color: .secondaryLabelColor)
+    private func drawProvider(_ state: ProviderDashboardState, at originY: CGFloat) -> CGFloat {
+        let isActive = active?.provider == state.provider
+        let sectionHeight = 50 + CGFloat(state.windows.count) * 35
+        if isActive, let remaining = active?.window.remainingPercent {
+            LimitPalette.color(for: remaining).withAlphaComponent(0.07).setFill()
+            NSRect(x: 0, y: originY, width: bounds.width, height: sectionHeight - 1).fill()
+            LimitPalette.color(for: remaining).withAlphaComponent(0.9).setFill()
+            NSRect(x: 0, y: originY + 5, width: 3, height: sectionHeight - 11).fill()
         }
 
-        drawText(title, rect: NSRect(x: 46, y: 10, width: bounds.width - 152, height: 20), font: .systemFont(ofSize: 14, weight: .semibold), color: .labelColor)
-        drawText(subtitle, rect: NSRect(x: 46, y: 34, width: bounds.width - 64, height: 17), font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
-        drawText(percent, rect: NSRect(x: bounds.width - 100, y: 7, width: 84, height: 28), font: .monospacedDigitSystemFont(ofSize: 23, weight: .semibold), color: active.map { LimitPalette.color(for: $0.window.remainingPercent) } ?? .secondaryLabelColor, alignment: .right)
-
-        drawProgress(active?.window.remainingPercent, rect: NSRect(x: 14, y: 66, width: bounds.width - 28, height: 7))
-        drawDivider(y: 86)
-    }
-
-    private func drawProvider(_ state: ProviderDashboardState, at originY: CGFloat) -> CGFloat {
-        drawSymbol(state.provider.symbolName, in: NSRect(x: 17, y: originY + 9, width: 16, height: 16), color: state.isStale ? .secondaryLabelColor : .labelColor)
-        drawText(state.provider.displayName, rect: NSRect(x: 43, y: originY + 5, width: 105, height: 18), font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor)
-        drawText(state.status, rect: NSRect(x: 43, y: originY + 24, width: bounds.width - 59, height: 17), font: .systemFont(ofSize: 10.5), color: .secondaryLabelColor)
+        let iconColor: NSColor = state.isStale ? .secondaryLabelColor : ProviderIcon.brandColor(for: state.provider)
+        ProviderIcon.draw(state.provider, in: NSRect(x: 17, y: originY + 9, width: 18, height: 18), color: iconColor)
+        drawText(state.provider.displayName, rect: NSRect(x: 45, y: originY + 5, width: 115, height: 18), font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor)
+        drawText(state.status, rect: NSRect(x: 45, y: originY + 24, width: bounds.width - 61, height: 17), font: .systemFont(ofSize: 10.5), color: .secondaryLabelColor)
 
         var y = originY + 48
         for window in state.windows {
             let remaining = window.remainingPercent
-            drawText(Self.windowLabel(window), rect: NSRect(x: 43, y: y, width: bounds.width - 125, height: 16), font: .systemFont(ofSize: 11.5, weight: .medium), color: state.isStale ? .secondaryLabelColor : .labelColor)
+            let selectedWindow = isActive && window == active?.window
+            drawText(Self.windowLabel(window), rect: NSRect(x: 45, y: y, width: bounds.width - 127, height: 16), font: .systemFont(ofSize: 11.5, weight: selectedWindow ? .semibold : .medium), color: state.isStale ? .secondaryLabelColor : .labelColor)
             drawText("\(Int(remaining.rounded()))%", rect: NSRect(x: bounds.width - 72, y: y - 1, width: 56, height: 17), font: .monospacedDigitSystemFont(ofSize: 12, weight: .semibold), color: state.isStale ? .secondaryLabelColor : LimitPalette.color(for: remaining), alignment: .right)
-            drawProgress(remaining, rect: NSRect(x: 43, y: y + 22, width: bounds.width - 59, height: 4), muted: state.isStale)
+            drawProgress(remaining, rect: NSRect(x: 45, y: y + 22, width: bounds.width - 61, height: selectedWindow ? 5 : 4), muted: state.isStale)
             y += 35
         }
         drawDivider(y: y - 1)
@@ -565,14 +582,6 @@ private final class LimitsDashboardView: NSView {
         NSRect(x: 14, y: y, width: bounds.width - 28, height: 1).fill()
     }
 
-    private func drawSymbol(_ name: String, in rect: NSRect, color: NSColor) {
-        let configuration = NSImage.SymbolConfiguration(pointSize: rect.height, weight: .medium)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
-        NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-            .withSymbolConfiguration(configuration)?
-            .draw(in: rect)
-    }
-
     private func drawText(_ text: String, rect: NSRect, font: NSFont, color: NSColor, alignment: NSTextAlignment = .left) {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = alignment
@@ -584,23 +593,29 @@ private final class LimitsDashboardView: NSView {
 @MainActor
 private enum LimitStatusImage {
     static func make(limit: DisplayedLimit?, stateText: String?) -> NSImage {
-        let size = NSSize(width: 76, height: 18)
+        let size = NSSize(width: 88, height: 18)
         let image = NSImage(size: size, flipped: false) { _ in
             let value = limit.map { "\(Int($0.window.remainingPercent.rounded()))%" } ?? (stateText ?? "--")
+            let window = limit.map { shortLabel($0.window) } ?? ""
+            let windowAttributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .medium),
+                .foregroundColor: NSColor.secondaryLabelColor,
+            ]
             let valueAttributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .semibold),
                 .foregroundColor: NSColor.labelColor,
             ]
             let valueWidth = value.size(withAttributes: valueAttributes).width
-            let symbolRect = NSRect(x: 8, y: 3.5, width: 12, height: 12)
+            let windowWidth = window.size(withAttributes: windowAttributes).width
             if let limit {
-                let configuration = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
-                    .applying(NSImage.SymbolConfiguration(paletteColors: [NSColor.labelColor]))
-                NSImage(systemSymbolName: limit.provider.symbolName, accessibilityDescription: nil)?
-                    .withSymbolConfiguration(configuration)?
-                    .draw(in: symbolRect)
+                let contentWidth = 13 + 4 + windowWidth + 5 + valueWidth
+                let contentX = (size.width - contentWidth) / 2
+                ProviderIcon.draw(limit.provider, in: NSRect(x: contentX, y: 3, width: 13, height: 13), color: .labelColor)
+                window.draw(at: NSPoint(x: contentX + 17, y: 5.5), withAttributes: windowAttributes)
+                value.draw(at: NSPoint(x: contentX + 17 + windowWidth + 5, y: 4), withAttributes: valueAttributes)
+            } else {
+                value.draw(at: NSPoint(x: (size.width - valueWidth) / 2, y: 4), withAttributes: valueAttributes)
             }
-            value.draw(at: NSPoint(x: size.width - valueWidth - 8, y: 4), withAttributes: valueAttributes)
 
             let track = NSRect(x: 2, y: 0, width: size.width - 4, height: 2)
             NSColor.tertiaryLabelColor.withAlphaComponent(0.28).setFill()
@@ -614,6 +629,65 @@ private enum LimitStatusImage {
         }
         image.isTemplate = false
         return image
+    }
+
+    private static func shortLabel(_ window: RateLimitWindow) -> String {
+        if window.windowDurationMinutes == 300 { return L10n.string("window.short.five") }
+        if window.windowDurationMinutes == 10_080 { return L10n.string("window.short.week") }
+        return L10n.string("window.short.limit")
+    }
+}
+
+@MainActor
+private enum ProviderIcon {
+    static func menuImage(for provider: AIProvider) -> NSImage? {
+        guard let image = sourceImage(for: provider) else {
+            return NSImage(systemSymbolName: provider.fallbackSymbolName, accessibilityDescription: provider.displayName)
+        }
+        let result = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { rect in
+            draw(image, in: rect, color: .labelColor)
+            return true
+        }
+        result.isTemplate = false
+        return result
+    }
+
+    static func draw(_ provider: AIProvider, in rect: NSRect, color: NSColor) {
+        if let image = sourceImage(for: provider) {
+            draw(image, in: rect, color: color)
+            return
+        }
+        let configuration = NSImage.SymbolConfiguration(pointSize: rect.height, weight: .medium)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+        NSImage(systemSymbolName: provider.fallbackSymbolName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration)?
+            .draw(in: rect)
+    }
+
+    static func brandColor(for provider: AIProvider) -> NSColor {
+        switch provider {
+        case .codex: return .labelColor
+        case .claude: return NSColor(srgbRed: 0.85, green: 0.47, blue: 0.34, alpha: 1)
+        }
+    }
+
+    private static func sourceImage(for provider: AIProvider) -> NSImage? {
+        guard let url = Bundle.main.url(
+            forResource: provider.iconAssetName,
+            withExtension: "svg",
+            subdirectory: "ProviderIcons"
+        ) else { return nil }
+        let image = NSImage(contentsOf: url)
+        image?.isTemplate = true
+        return image
+    }
+
+    private static func draw(_ image: NSImage, in rect: NSRect, color: NSColor) {
+        NSGraphicsContext.saveGraphicsState()
+        image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
+        color.setFill()
+        rect.fill(using: .sourceIn)
+        NSGraphicsContext.restoreGraphicsState()
     }
 }
 

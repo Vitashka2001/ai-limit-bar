@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0 - 2026-08-08
+
+- Removed the duplicated active-limit header from the dashboard.
+- Moved the active provider to the top and added a restrained highlight.
+- Restored the 5-hour or 7-day window label in the menu bar.
+- Replaced generic provider symbols with LobeHub Codex and Claude logos.
+- Added a safe shortcut to Claude Desktop profile settings for switching accounts.
+
 ## 2.0.0 - 2026-08-08
 
 - Renamed the app to AI Limit Bar.
