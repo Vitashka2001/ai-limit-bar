@@ -1,5 +1,5 @@
 "menu.monitoring" = "Limit monitoring";
-"menu.claudeBackgroundRefresh" = "Keep Claude data current";
+"menu.claudeCodeIntegration" = "Claude Code live updates";
 "menu.switchAccount" = "Switch Codex account...";
 "menu.switchClaudeAccount" = "Switch Claude account...";
 "menu.cancelSwitch" = "Cancel account switch";
@@ -47,12 +47,13 @@
 "gauge.monitoringStopped.subtitle" = "Background polling is off";
 
 "dashboard.monitoringStopped" = "Monitoring is paused";
-"claude.updated" = "Local data updated %@";
-"claude.stale" = "Cached %@ · open Claude Desktop to refresh";
-"claude.staleAuto" = "Cached %@ · refreshing through Claude Desktop";
-"claude.notInstalled" = "Claude Desktop is not installed";
-"claude.noData" = "Open Claude Desktop to load local usage data";
-"claude.noDataAuto" = "Starting Claude Desktop to load usage data";
+"claude.codeUpdated" = "Claude Code updated %@";
+"claude.codeStale" = "Claude Code data from %@ · waiting for activity";
+"claude.desktopUpdated" = "Desktop cache updated %@";
+"claude.desktopStale" = "Desktop cache from %@ · open Claude Desktop to refresh";
+"claude.waitingForCode" = "Waiting for Claude Code activity";
+"claude.noLiveSource" = "Enable Claude Code live updates or open Claude Desktop";
+"claude.noData" = "No Claude usage data yet";
 "claude.failed" = "Could not read Claude's local usage data";
 
 "account.connecting" = "Account: connecting";
@@ -80,6 +81,10 @@
 "alert.restart.title" = "Could not restart the app";
 "alert.claudeOpen.title" = "Could not open Claude Desktop";
 "alert.claudeOpen.message" = "Open Claude Desktop manually, then use Profile settings to sign out and switch accounts.";
+"alert.claudeIntegrationConflict.title" = "Claude Code status line is already configured";
+"alert.claudeIntegrationConflict.message" = "AI Limit Bar did not replace your existing status line. Remove it in Claude Code settings before enabling live updates.";
+"alert.claudeIntegrationFailed.title" = "Could not update Claude Code settings";
+"alert.claudeIntegrationFailed.message" = "Check access to ~/.claude/settings.json and try again.";
 "alert.ok" = "OK";
 
 "error.executableNotFound" = "Codex executable not found";

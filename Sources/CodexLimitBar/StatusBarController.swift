@@ -5,20 +5,18 @@ import OSLog
 @MainActor
 final class StatusBarController: NSObject, NSMenuDelegate {
     private static let monitoringDefaultsKey = "monitoringEnabled"
-    private static let claudeBackgroundRefreshDefaultsKey = "claudeBackgroundRefreshEnabled"
     private static let codexUsageSignatureDefaultsKey = "codexUsageSignature"
     private static let codexLastUsageChangeDefaultsKey = "codexLastUsageChangeAt"
     private static let minimumContentWidth: CGFloat = 420
     private static let recentActivityInterval: TimeInterval = 15 * 60
     private static let dualActivityInterval: TimeInterval = 30 * 60
-    private static let claudeLaunchRetryInterval: TimeInterval = 5 * 60
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: 90)
     private let client = CodexAppServerClient()
     private let dashboardView = LimitsDashboardView(frame: NSRect(x: 0, y: 0, width: 420, height: 235))
     private let logger = Logger(subsystem: "com.vitashka2001.AILimitBar", category: "limits")
     private let monitoringItem = NSMenuItem(title: L10n.string("menu.monitoring"), action: nil, keyEquivalent: "")
-    private let claudeBackgroundRefreshItem = NSMenuItem(title: L10n.string("menu.claudeBackgroundRefresh"), action: nil, keyEquivalent: "")
+    private let claudeCodeIntegrationItem = NSMenuItem(title: L10n.string("menu.claudeCodeIntegration"), action: nil, keyEquivalent: "")
     private let switchAccountItem = NSMenuItem(title: L10n.string("menu.switchAccount"), action: nil, keyEquivalent: "")
     private let switchClaudeAccountItem = NSMenuItem(title: L10n.string("menu.switchClaudeAccount"), action: nil, keyEquivalent: "")
     private let launchAtLoginItem = NSMenuItem(title: L10n.string("menu.launchAtLogin"), action: nil, keyEquivalent: "")
@@ -30,10 +28,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var claudeResult: ClaudeUsageReadResult = .noData
     private var account: CodexAccount?
     private var monitoringEnabled = true
-    private var claudeBackgroundRefreshEnabled = true
-    private var claudeLastLaunchAttemptAt: Date?
-    private var claudeWasLaunchedForRefresh = false
-    private var claudeRefreshChecksRemaining = 0
     private var clientConnected = false
     private var loginInProgress = false
     private var codexUsageSignature: [String: Double] = [:]
@@ -51,12 +45,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             name: NSWorkspace.didActivateApplicationNotification,
             object: nil
         )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(claudeCodeUsageUpdated),
+            name: ClaudeCodeIntegration.usageUpdatedNotification,
+            object: nil
+        )
         LaunchAtLoginManager.migrateIfNeeded()
-        let storedClaudeRefresh = UserDefaults.standard.object(
-            forKey: Self.claudeBackgroundRefreshDefaultsKey
-        ) as? Bool
-        claudeBackgroundRefreshEnabled = storedClaudeRefresh ?? true
-        claudeBackgroundRefreshItem.state = claudeBackgroundRefreshEnabled ? .on : .off
+        refreshClaudeCodeIntegrationState()
         let storedValue = UserDefaults.standard.object(forKey: Self.monitoringDefaultsKey) as? Bool
         setMonitoringEnabled(storedValue ?? true, persist: false)
         refreshLaunchAtLoginState()
@@ -66,6 +62,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         refreshTimer?.invalidate()
         refreshTimer = nil
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(self)
         client.stop()
     }
 
@@ -80,15 +77,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         configureMenuItem(monitoringItem, action: #selector(toggleMonitoring), symbol: "chart.bar.fill")
         configureMenuItem(
-            claudeBackgroundRefreshItem,
-            action: #selector(toggleClaudeBackgroundRefresh),
-            symbol: "arrow.clockwise.circle"
+            claudeCodeIntegrationItem,
+            action: #selector(toggleClaudeCodeIntegration),
+            symbol: "bolt.horizontal.circle"
         )
         configureProviderMenuItem(switchAccountItem, action: #selector(switchAccount), provider: .codex)
         configureProviderMenuItem(switchClaudeAccountItem, action: #selector(switchClaudeAccount), provider: .claude)
         configureMenuItem(launchAtLoginItem, action: #selector(toggleLaunchAtLogin), symbol: "power")
         menu.addItem(monitoringItem)
-        menu.addItem(claudeBackgroundRefreshItem)
+        menu.addItem(claudeCodeIntegrationItem)
         menu.addItem(switchAccountItem)
         menu.addItem(switchClaudeAccountItem)
         menu.addItem(launchAtLoginItem)
@@ -234,7 +231,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         claudeResult = ClaudeUsageReader.read()
         render()
         updateActionAvailability()
-        refreshClaudeInBackgroundIfNeeded()
     }
 
     private func render() {
@@ -282,10 +278,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         switch claudeResult {
         case .available(let snapshot):
             let key: String
-            if snapshot.isFresh() {
-                key = "claude.updated"
-            } else {
-                key = claudeBackgroundRefreshEnabled ? "claude.staleAuto" : "claude.stale"
+            switch (snapshot.source, snapshot.isFresh()) {
+            case (.claudeCode, true): key = "claude.codeUpdated"
+            case (.claudeCode, false): key = "claude.codeStale"
+            case (.desktop, true): key = "claude.desktopUpdated"
+            case (.desktop, false): key = "claude.desktopStale"
             }
             return ProviderDashboardState(
                 provider: .claude,
@@ -294,9 +291,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                 isStale: !snapshot.isFresh()
             )
         case .notInstalled:
-            return ProviderDashboardState(provider: .claude, status: L10n.string("claude.notInstalled"), windows: [])
+            let key = ClaudeCodeIntegration.isInstalled ? "claude.waitingForCode" : "claude.noLiveSource"
+            return ProviderDashboardState(provider: .claude, status: L10n.string(key), windows: [])
         case .noData:
-            let key = claudeBackgroundRefreshEnabled ? "claude.noDataAuto" : "claude.noData"
+            let key = ClaudeCodeIntegration.isInstalled ? "claude.waitingForCode" : "claude.noData"
             return ProviderDashboardState(provider: .claude, status: L10n.string(key), windows: [])
         case .failed:
             return ProviderDashboardState(provider: .claude, status: L10n.string("claude.failed"), windows: [])
@@ -406,12 +404,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         refreshItem.isEnabled = monitoringEnabled
         switchAccountItem.isEnabled = monitoringEnabled && (clientConnected || loginInProgress)
         switchClaudeAccountItem.isEnabled = monitoringEnabled && claudeDesktopIsInstalled
-        claudeBackgroundRefreshItem.isEnabled = monitoringEnabled && claudeDesktopIsInstalled
+        claudeCodeIntegrationItem.isEnabled = true
     }
 
     private var claudeDesktopIsInstalled: Bool {
-        if case .notInstalled = claudeResult { return false }
-        return true
+        ClaudeUsageReader.desktopIsInstalled()
     }
 
     @objc private func refreshNow() {
@@ -424,85 +421,43 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         setMonitoringEnabled(!monitoringEnabled, persist: true)
     }
 
-    @objc private func toggleClaudeBackgroundRefresh() {
-        claudeBackgroundRefreshEnabled.toggle()
-        claudeBackgroundRefreshItem.state = claudeBackgroundRefreshEnabled ? .on : .off
-        UserDefaults.standard.set(
-            claudeBackgroundRefreshEnabled,
-            forKey: Self.claudeBackgroundRefreshDefaultsKey
-        )
-        if claudeBackgroundRefreshEnabled {
-            refreshClaude()
+    @objc private func toggleClaudeCodeIntegration() {
+        if ClaudeCodeIntegration.isInstalled {
+            guard ClaudeCodeIntegration.uninstall() else {
+                showAlert(
+                    title: L10n.string("alert.claudeIntegrationFailed.title"),
+                    message: L10n.string("alert.claudeIntegrationFailed.message")
+                )
+                return
+            }
         } else {
-            render()
+            guard let executableURL = Bundle.main.executableURL else { return }
+            switch ClaudeCodeIntegration.install(executableURL: executableURL) {
+            case .installed:
+                break
+            case .conflict:
+                showAlert(
+                    title: L10n.string("alert.claudeIntegrationConflict.title"),
+                    message: L10n.string("alert.claudeIntegrationConflict.message")
+                )
+            case .failed:
+                showAlert(
+                    title: L10n.string("alert.claudeIntegrationFailed.title"),
+                    message: L10n.string("alert.claudeIntegrationFailed.message")
+                )
+            }
         }
+        refreshClaudeCodeIntegrationState()
+        refreshClaude()
     }
 
-    private func refreshClaudeInBackgroundIfNeeded(now: Date = Date()) {
-        guard monitoringEnabled, claudeBackgroundRefreshEnabled, claudeDesktopIsInstalled else { return }
-        let needsRefresh: Bool
-        switch claudeResult {
-        case .available(let snapshot): needsRefresh = !snapshot.isFresh(at: now)
-        case .noData, .failed: needsRefresh = true
-        case .notInstalled: needsRefresh = false
-        }
-        guard needsRefresh else { return }
-        guard NSRunningApplication.runningApplications(
-            withBundleIdentifier: "com.anthropic.claudefordesktop"
-        ).isEmpty else { return }
-        if let lastAttempt = claudeLastLaunchAttemptAt,
-           now.timeIntervalSince(lastAttempt) < Self.claudeLaunchRetryInterval {
-            return
-        }
-
-        claudeLastLaunchAttemptAt = now
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-gj", "-a", "Claude"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-            claudeWasLaunchedForRefresh = true
-            claudeRefreshChecksRemaining = 4
-            scheduleClaudeBackgroundRefreshCheck()
-        } catch {
-            logger.error("Could not launch Claude Desktop in background: \(error.localizedDescription, privacy: .public)")
-        }
+    private func refreshClaudeCodeIntegrationState() {
+        claudeCodeIntegrationItem.state = ClaudeCodeIntegration.isInstalled ? .on : .off
     }
 
-    private func scheduleClaudeBackgroundRefreshCheck() {
-        Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
-            Task { @MainActor in self?.completeClaudeBackgroundRefresh() }
-        }
-    }
-
-    private func completeClaudeBackgroundRefresh() {
-        guard claudeWasLaunchedForRefresh else { return }
-        claudeResult = ClaudeUsageReader.read()
-        render()
-        updateActionAvailability()
-
-        let isFresh: Bool
-        if case .available(let snapshot) = claudeResult {
-            isFresh = snapshot.isFresh()
-        } else {
-            isFresh = false
-        }
-        claudeRefreshChecksRemaining -= 1
-        if !isFresh, claudeRefreshChecksRemaining > 0 {
-            scheduleClaudeBackgroundRefreshCheck()
-            return
-        }
-
-        let applications = NSRunningApplication.runningApplications(
-            withBundleIdentifier: "com.anthropic.claudefordesktop"
-        )
-        if let application = applications.first, application.isHidden, !application.isActive {
-            application.terminate()
-        }
-        claudeWasLaunchedForRefresh = false
-        claudeRefreshChecksRemaining = 0
+    @objc private func claudeCodeUsageUpdated(_ notification: Notification) {
+        guard monitoringEnabled else { return }
+        refreshClaude()
     }
 
     @objc private func switchAccount() {
@@ -755,7 +710,7 @@ private enum LimitStatusImage {
                 draw(limits[0], in: NSRect(x: 0, y: 0, width: segmentWidth, height: size.height))
                 draw(limits[1], in: NSRect(x: segmentWidth + segmentGap, y: 0, width: segmentWidth, height: size.height))
                 NSColor.separatorColor.withAlphaComponent(0.8).setFill()
-                NSRect(x: size.width / 2 - 0.5, y: 4, width: 1, height: 12).fill()
+                NSRect(x: size.width / 2 - 2.5, y: 4, width: 1, height: 12).fill()
             } else if let limit = limits.first {
                 draw(limit, in: NSRect(origin: .zero, size: size))
             } else {

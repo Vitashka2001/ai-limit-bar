@@ -11,11 +11,12 @@ The app:
 - does not read or store passwords, cookies, session storage, access tokens, refresh tokens, or API keys;
 - does not request keyboard input, screen recording, microphone, camera, or broad file access;
 - receives Codex account and limit information from the locally installed `codex app-server`;
-- reads only Claude Desktop's local `plan-usage-history.json` usage cache for Claude percentages, timestamps, and its non-secret organization identifier.
+- receives Claude Code rate-limit percentages and reset timestamps through its official local `statusLine` interface;
+- can passively read Claude Desktop's local `plan-usage-history.json` usage cache for percentages, timestamps, and its non-secret organization identifier.
 
-Claude's local cache does not contain email, plan type, or reset times. Data older than five minutes is marked as cached and is not used for automatic status-bar selection.
+When **Claude Code live updates** is enabled, AI Limit Bar adds a command to `~/.claude/settings.json`. Claude Code sends its normal status-line JSON to that command after responses. AI Limit Bar stores only the two rate-limit percentages, reset timestamps, capture time, and last-change time. It does not store session identifiers, workspace paths, prompts, responses, or model context.
 
-When **Keep Claude data current** is enabled, AI Limit Bar may launch Claude Desktop hidden so the official app can refresh its own cache. AI Limit Bar never reads Claude's session credentials and closes only the hidden Claude instance it launched itself.
+Claude Desktop's cache does not contain email, plan type, or reset times. Cached data older than five minutes remains visible but is not used for automatic status-bar selection. AI Limit Bar never launches Claude Desktop; it reads this fallback only when the official app has updated it independently.
 
 When the user switches Codex accounts, Codex opens its official browser authentication flow. The new account becomes active for other local Codex tools on the same Mac.
 

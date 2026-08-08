@@ -1,4 +1,9 @@
 import AppKit
+import Darwin
+
+if CommandLine.arguments.contains(ClaudeCodeIntegration.commandArgument) {
+    exit(ClaudeCodeIntegration.captureStatusLineInput() ? EXIT_SUCCESS : EXIT_FAILURE)
+}
 
 PreferencesMigration.run()
 

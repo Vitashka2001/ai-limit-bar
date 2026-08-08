@@ -64,6 +64,59 @@ import Testing
     #expect(snapshot.lastUsageChangeAt == Date(timeIntervalSince1970: 1_785_620_300))
 }
 
+@Test func capturesClaudeCodeStatusLineLimitsWithoutSessionData() throws {
+    let json = #"""
+    {
+      "session_id":"private-session",
+      "workspace":{"current_dir":"/private/project"},
+      "rate_limits":{
+        "five_hour":{"used_percentage":23.5,"resets_at":1785630000},
+        "seven_day":{"used_percentage":41.2,"resets_at":1786000000}
+      }
+    }
+    """#
+    let capturedAt = Date(timeIntervalSince1970: 1_785_620_500)
+    let storedData = try ClaudeCodeUsageCache.updatedData(
+        from: Data(json.utf8),
+        previousData: nil,
+        capturedAt: capturedAt
+    )
+    let stored = try #require(storedData)
+    let decoded = try ClaudeCodeUsageCache.decode(stored)
+    let snapshot = try #require(decoded)
+
+    #expect(snapshot.limits.fiveHour?.remainingPercent == 76.5)
+    #expect(snapshot.limits.weekly?.remainingPercent == 58.8)
+    #expect(snapshot.limits.fiveHour?.resetsAt == Date(timeIntervalSince1970: 1_785_630_000))
+    #expect(snapshot.lastUsageChangeAt == capturedAt)
+    #expect(!String(decoding: stored, as: UTF8.self).contains("private-session"))
+    #expect(!String(decoding: stored, as: UTF8.self).contains("private/project"))
+}
+
+@Test func preservesClaudeCodeActivityTimeWhenLimitsDoNotChange() throws {
+    let json = #"""
+    {"rate_limits":{"five_hour":{"used_percentage":23.5,"resets_at":1785630000}}}
+    """#
+    let firstDate = Date(timeIntervalSince1970: 1_785_620_500)
+    let firstData = try ClaudeCodeUsageCache.updatedData(
+        from: Data(json.utf8),
+        previousData: nil,
+        capturedAt: firstDate
+    )
+    let first = try #require(firstData)
+    let secondData = try ClaudeCodeUsageCache.updatedData(
+        from: Data(json.utf8),
+        previousData: first,
+        capturedAt: firstDate.addingTimeInterval(60)
+    )
+    let second = try #require(secondData)
+    let decoded = try ClaudeCodeUsageCache.decode(second)
+    let snapshot = try #require(decoded)
+
+    #expect(snapshot.limits.fetchedAt == firstDate.addingTimeInterval(60))
+    #expect(snapshot.lastUsageChangeAt == firstDate)
+}
+
 @Test func parsesChatGPTAccountWithoutCredentials() throws {
     let json = #"""
     {"id":8,"result":{"account":{"type":"chatgpt","email":"user@example.com","planType":"plus"},"requiresOpenaiAuth":true}}

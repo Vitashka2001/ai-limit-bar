@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.4.0 - 2026-08-08
+
+- Replaced the cloud-shaped Codex mark with a clean `>_` glyph derived from the official LobeHub geometry.
+- Optically aligned the divider in the dual-provider menu-bar indicator.
+- Removed all automatic Claude Desktop launching and process management.
+- Added live Claude Code limits through the official local `statusLine` fields.
+- Kept Claude Desktop's local usage history as a passive fallback source.
+- Stored only normalized limit percentages and timestamps from Claude Code status input.
+
 ## 2.3.1 - 2026-08-08
 
 - Switched the Codex provider mark to official `Codex` Mono from `@lobehub/icons` 5.15.0.

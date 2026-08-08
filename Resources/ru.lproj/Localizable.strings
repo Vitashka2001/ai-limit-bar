@@ -1,5 +1,5 @@
 "menu.monitoring" = "Мониторинг лимитов";
-"menu.claudeBackgroundRefresh" = "Обновлять данные Claude в фоне";
+"menu.claudeCodeIntegration" = "Онлайн-обновления Claude Code";
 "menu.switchAccount" = "Сменить аккаунт Codex...";
 "menu.switchClaudeAccount" = "Сменить аккаунт Claude...";
 "menu.cancelSwitch" = "Отменить смену аккаунта";
@@ -47,12 +47,13 @@
 "gauge.monitoringStopped.subtitle" = "Фоновый опрос выключен";
 
 "dashboard.monitoringStopped" = "Мониторинг приостановлен";
-"claude.updated" = "Локальные данные обновлены %@";
-"claude.stale" = "Кэш от %@ · откройте Claude Desktop для обновления";
-"claude.staleAuto" = "Кэш от %@ · обновляем через Claude Desktop";
-"claude.notInstalled" = "Claude Desktop не установлен";
-"claude.noData" = "Откройте Claude Desktop, чтобы загрузить локальные данные";
-"claude.noDataAuto" = "Запускаем Claude Desktop для загрузки данных";
+"claude.codeUpdated" = "Claude Code обновил данные %@";
+"claude.codeStale" = "Данные Claude Code от %@ · ожидание активности";
+"claude.desktopUpdated" = "Кэш Desktop обновлён %@";
+"claude.desktopStale" = "Кэш Desktop от %@ · откройте Claude Desktop для обновления";
+"claude.waitingForCode" = "Ожидание активности Claude Code";
+"claude.noLiveSource" = "Включите онлайн-обновления Claude Code или откройте Claude Desktop";
+"claude.noData" = "Данных об использовании Claude пока нет";
 "claude.failed" = "Не удалось прочитать локальные данные Claude";
 
 "account.connecting" = "Аккаунт: подключение";
@@ -80,6 +81,10 @@
 "alert.restart.title" = "Не удалось перезапустить приложение";
 "alert.claudeOpen.title" = "Не удалось открыть Claude Desktop";
 "alert.claudeOpen.message" = "Откройте Claude Desktop вручную, затем выйдите и смените аккаунт в настройках профиля.";
+"alert.claudeIntegrationConflict.title" = "Строка статуса Claude Code уже настроена";
+"alert.claudeIntegrationConflict.message" = "AI Limit Bar не стала заменять существующую строку статуса. Удалите её в настройках Claude Code перед включением онлайн-обновлений.";
+"alert.claudeIntegrationFailed.title" = "Не удалось обновить настройки Claude Code";
+"alert.claudeIntegrationFailed.message" = "Проверьте доступ к ~/.claude/settings.json и повторите попытку.";
 "alert.ok" = "OK";
 
 "error.executableNotFound" = "Исполняемый файл Codex не найден";

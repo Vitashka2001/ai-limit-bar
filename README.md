@@ -20,33 +20,34 @@ AI Limit Bar shows the most relevant fresh quota in the menu bar and all detecte
 - shows every detected 5-hour and weekly quota;
 - green at 50–100%, yellow at 20–49%, and red below 20%;
 - supports Codex account switching and opens Claude Desktop directly at profile settings;
-- can briefly wake Claude Desktop in the background to keep its usage cache current;
+- receives live Claude limits from the official Claude Code status-line interface;
+- can use Claude Desktop's local cache as a passive fallback without launching Desktop;
 - marks stale Claude data instead of presenting it as current;
 - English, Ukrainian, and Russian interface languages;
 - manual refresh, monitoring pause, and launch at login.
 
 ## Data Sources
 
-Codex data comes from the locally installed `codex app-server`. Claude data comes from Claude Desktop's local `plan-usage-history.json` cache. The app never reads browser cookies, session storage, passwords, tokens, or API keys.
+Codex data comes from the locally installed `codex app-server`. For Claude, the preferred source is the official Claude Code [`statusLine`](https://code.claude.com/docs/en/statusline) interface. After each Claude response it supplies the 5-hour and 7-day percentages and reset times. AI Limit Bar stores only those limit values and timestamps, then refreshes the menu bar immediately.
 
-With **Keep Claude data current** enabled, AI Limit Bar checks the local cache every minute and briefly launches Claude Desktop in the background when the data is about five minutes old. Claude performs the authenticated usage request itself; after fresh data appears, AI Limit Bar closes only the hidden instance it started. In practice, the percentage refreshes about every 5-6 minutes. The cache does not contain reset timestamps, so the dashboard shows its update time instead. Claude data older than five minutes remains visible but is excluded from automatic menu-bar selection.
+Enable **Claude Code live updates** once to install the local bridge in `~/.claude/settings.json`. It is available to Claude.ai Pro/Max subscribers after the first official Claude Code response. The bridge does not make network requests and never reads passwords, OAuth tokens, cookies, or API keys. If another status line is already configured, AI Limit Bar leaves it unchanged.
 
-Claude Code usage in a supported IDE can count toward the same subscription limits, while AI Limit Bar reads the Claude Desktop cache. Automatic background refresh removes the need to open Desktop manually. Third-party IDE extensions using an API provider may have separate billing and limits.
+Claude Desktop's `plan-usage-history.json` remains a passive fallback when Desktop is opened by the user. AI Limit Bar never launches Claude Desktop. Third-party IDE extensions such as Cline can use separate API billing and may not expose Claude.ai subscription limits.
 
 ## Requirements And Installation
 
 - macOS 13 Ventura or newer;
 - Codex or the official Codex editor extension for Codex limits;
-- Claude Desktop for Claude limits.
+- official Claude Code for live Claude limits, or Claude Desktop for cached fallback data.
 
-Download `AI-Limit-Bar-2.3.1.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.4.0.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 
 ## Controls
 
 - **Limit monitoring** pauses all background updates.
-- **Keep Claude data current** controls automatic hidden Claude Desktop refreshes.
+- **Claude Code live updates** adds or removes the safe local status-line bridge.
 - **Switch Codex account...** opens Codex's official browser sign-in.
 - **Switch Claude account...** opens Claude Desktop profile settings for sign-out and account switching.
 - **Language** changes the interface language and restarts the app.
