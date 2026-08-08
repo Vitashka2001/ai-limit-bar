@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.4 - 2026-08-09
+
+- Adds a guided Claude setup prompt when no live limit source is available.
+- Links directly to the official Claude Code setup guide or Claude Desktop download.
+- Keeps Claude account setup accessible even when Desktop is not installed.
+
 ## 2.4.3 - 2026-08-09
 
 - Launches the Claude Desktop fallback without activation and immediately hides it if Electron requests focus.

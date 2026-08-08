@@ -437,7 +437,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func updateActionAvailability() {
         refreshItem.isEnabled = monitoringEnabled
         switchAccountItem.isEnabled = monitoringEnabled && (clientConnected || loginInProgress)
-        switchClaudeAccountItem.isEnabled = monitoringEnabled && claudeDesktopIsInstalled
+        switchClaudeAccountItem.isEnabled = monitoringEnabled
+        switchClaudeAccountItem.title = L10n.string(
+            claudeDesktopIsInstalled ? "menu.switchClaudeAccount" : "menu.setupClaude"
+        )
         claudeAutomaticRefreshItem.isEnabled = true
     }
 
@@ -449,6 +452,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         guard monitoringEnabled else { return }
         client.refresh()
         refreshClaude(forceDesktopRefresh: true)
+        if shouldRecommendClaudeSetup {
+            showClaudeSetupRecommendation()
+        }
     }
 
     @objc private func toggleMonitoring() {
@@ -490,6 +496,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         if !enabling { stopOwnedClaudeDesktop() }
         refreshClaudeAutomaticRefreshState()
         refreshClaude()
+        if enabling, shouldRecommendClaudeSetup {
+            showClaudeSetupRecommendation()
+        }
     }
 
     private func refreshClaudeAutomaticRefreshState() {
@@ -670,11 +679,51 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func switchClaudeAccount() {
+        guard claudeDesktopIsInstalled else {
+            showClaudeSetupRecommendation()
+            return
+        }
         guard let url = URL(string: "claude://claude.ai/settings/profile"),
               NSWorkspace.shared.open(url) else {
             showAlert(
                 title: L10n.string("alert.claudeOpen.title"),
                 message: L10n.string("alert.claudeOpen.message")
+            )
+            return
+        }
+    }
+
+    private var shouldRecommendClaudeSetup: Bool {
+        guard !claudeDesktopIsInstalled else { return false }
+        if case .available(let snapshot) = claudeResult {
+            return !snapshot.isFresh()
+        }
+        return true
+    }
+
+    private func showClaudeSetupRecommendation() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = L10n.string("alert.claudeSetup.title")
+        alert.informativeText = L10n.string("alert.claudeSetup.message")
+        alert.addButton(withTitle: L10n.string("alert.claudeSetup.codeButton"))
+        alert.addButton(withTitle: L10n.string("alert.claudeSetup.desktopButton"))
+        alert.addButton(withTitle: L10n.string("alert.cancel"))
+
+        let urlString: String?
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            urlString = "https://code.claude.com/docs/en/quickstart"
+        case .alertSecondButtonReturn:
+            urlString = "https://claude.com/download"
+        default:
+            urlString = nil
+        }
+        guard let urlString, let url = URL(string: urlString) else { return }
+        guard NSWorkspace.shared.open(url) else {
+            showAlert(
+                title: L10n.string("alert.browser.title"),
+                message: L10n.string("alert.browser.message")
             )
             return
         }

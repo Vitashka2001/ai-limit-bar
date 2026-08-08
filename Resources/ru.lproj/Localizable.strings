@@ -2,6 +2,7 @@
 "menu.claudeAutomaticRefresh" = "Автообновление Claude";
 "menu.switchAccount" = "Сменить аккаунт Codex...";
 "menu.switchClaudeAccount" = "Сменить аккаунт Claude...";
+"menu.setupClaude" = "Настроить отслеживание Claude...";
 "menu.cancelSwitch" = "Отменить смену аккаунта";
 "menu.startingLogin" = "Запуск входа...";
 "menu.launchAtLogin" = "Запускать при входе";
@@ -83,6 +84,10 @@
 "alert.restart.title" = "Не удалось перезапустить приложение";
 "alert.claudeOpen.title" = "Не удалось открыть Claude Desktop";
 "alert.claudeOpen.message" = "Откройте Claude Desktop вручную, затем выйдите и смените аккаунт в настройках профиля.";
+"alert.claudeSetup.title" = "Настройте отслеживание лимитов Claude";
+"alert.claudeSetup.message" = "Нет доступного источника актуальных лимитов Claude. Установите Claude Code, войдите в аккаунт и используйте его в терминале, чтобы обновлять лимиты после каждого ответа. Либо установите Claude Desktop и войдите в аккаунт для автоматических фоновых обновлений.";
+"alert.claudeSetup.codeButton" = "Инструкция Claude Code";
+"alert.claudeSetup.desktopButton" = "Скачать Desktop";
 "alert.claudeIntegrationConflict.title" = "Строка статуса Claude Code уже настроена";
 "alert.claudeIntegrationConflict.message" = "AI Limit Bar не стала заменять существующую строку статуса. Удалите её в настройках Claude Code перед включением автообновления лимитов.";
 "alert.claudeIntegrationFailed.title" = "Не удалось обновить настройки Claude Code";

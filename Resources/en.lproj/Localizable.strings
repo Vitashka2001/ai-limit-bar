@@ -2,6 +2,7 @@
 "menu.claudeAutomaticRefresh" = "Automatic Claude updates";
 "menu.switchAccount" = "Switch Codex account...";
 "menu.switchClaudeAccount" = "Switch Claude account...";
+"menu.setupClaude" = "Set up Claude tracking...";
 "menu.cancelSwitch" = "Cancel account switch";
 "menu.startingLogin" = "Starting sign-in...";
 "menu.launchAtLogin" = "Launch at login";
@@ -83,6 +84,10 @@
 "alert.restart.title" = "Could not restart the app";
 "alert.claudeOpen.title" = "Could not open Claude Desktop";
 "alert.claudeOpen.message" = "Open Claude Desktop manually, then use Profile settings to sign out and switch accounts.";
+"alert.claudeSetup.title" = "Set up Claude limit tracking";
+"alert.claudeSetup.message" = "No live Claude limit source is available. Install Claude Code, sign in, and use it in Terminal to update limits after each response. Or install and sign in to Claude Desktop for automatic background updates.";
+"alert.claudeSetup.codeButton" = "Claude Code guide";
+"alert.claudeSetup.desktopButton" = "Download Desktop";
 "alert.claudeIntegrationConflict.title" = "Claude Code status line is already configured";
 "alert.claudeIntegrationConflict.message" = "AI Limit Bar did not replace your existing status line. Remove it in Claude Code settings before enabling automatic limit updates.";
 "alert.claudeIntegrationFailed.title" = "Could not update Claude Code settings";

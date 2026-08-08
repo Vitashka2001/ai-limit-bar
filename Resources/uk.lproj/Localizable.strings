@@ -2,6 +2,7 @@
 "menu.claudeAutomaticRefresh" = "Автооновлення Claude";
 "menu.switchAccount" = "Змінити обліковий запис Codex...";
 "menu.switchClaudeAccount" = "Змінити обліковий запис Claude...";
+"menu.setupClaude" = "Налаштувати відстеження Claude...";
 "menu.cancelSwitch" = "Скасувати зміну облікового запису";
 "menu.startingLogin" = "Запуск входу...";
 "menu.launchAtLogin" = "Запускати під час входу";
@@ -83,6 +84,10 @@
 "alert.restart.title" = "Не вдалося перезапустити застосунок";
 "alert.claudeOpen.title" = "Не вдалося відкрити Claude Desktop";
 "alert.claudeOpen.message" = "Відкрийте Claude Desktop вручну, а потім вийдіть і змініть обліковий запис у налаштуваннях профілю.";
+"alert.claudeSetup.title" = "Налаштуйте відстеження лімітів Claude";
+"alert.claudeSetup.message" = "Немає доступного джерела актуальних лімітів Claude. Установіть Claude Code, увійдіть в обліковий запис і використовуйте його в терміналі, щоб оновлювати ліміти після кожної відповіді. Або встановіть Claude Desktop і увійдіть в обліковий запис для автоматичних фонових оновлень.";
+"alert.claudeSetup.codeButton" = "Інструкція Claude Code";
+"alert.claudeSetup.desktopButton" = "Завантажити Desktop";
 "alert.claudeIntegrationConflict.title" = "Рядок стану Claude Code уже налаштовано";
 "alert.claudeIntegrationConflict.message" = "AI Limit Bar не замінив наявний рядок стану. Видаліть його в налаштуваннях Claude Code перед увімкненням автооновлення лімітів.";
 "alert.claudeIntegrationFailed.title" = "Не вдалося оновити налаштування Claude Code";

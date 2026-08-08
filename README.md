@@ -22,6 +22,7 @@ AI Limit Bar shows the most relevant fresh quota in the menu bar and all detecte
 - supports Codex account switching and opens Claude Desktop directly at profile settings;
 - receives live Claude limits from the official Claude Code status-line interface;
 - automatically uses a brief Claude Desktop refresh only when fresh Claude Code data is unavailable;
+- offers official Claude Code and Desktop setup links when no live Claude source is available;
 - marks stale Claude data instead of presenting it as current;
 - English, Ukrainian, and Russian interface languages;
 - manual refresh, monitoring pause, and launch at login.
@@ -40,7 +41,7 @@ When fresh Claude Code data is unavailable, automatic updates can briefly launch
 - Codex or the official Codex editor extension for Codex limits;
 - official Claude Code for live Claude limits, or Claude Desktop for cached fallback data.
 
-Download `AI-Limit-Bar-2.4.3.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.4.4.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 
@@ -49,7 +50,7 @@ The public build is locally signed but not notarized. If macOS blocks the first 
 - **Limit monitoring** pauses all background updates.
 - **Automatic Claude updates** prefers fresh Claude Code data and uses Desktop only as a fallback.
 - **Switch Codex account...** opens Codex's official browser sign-in.
-- **Switch Claude account...** opens Claude Desktop profile settings for sign-out and account switching.
+- **Switch Claude account...** opens Claude Desktop profile settings. Without Desktop, **Set up Claude tracking...** offers the official Claude Code guide and Desktop download.
 - **Language** changes the interface language and restarts the app.
 - **Launch at login** controls automatic startup.
 - **Quit completely** closes the app.
