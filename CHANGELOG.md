@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.7 - 2026-08-09
+
+- Aligns percentages with reset details directly above each progress bar.
+- Prevents long localized reset dates from overlapping percentage values.
+
 ## 2.4.6 - 2026-08-09
 
 - Restores reset dates and times beneath limit windows when the provider supplies them.

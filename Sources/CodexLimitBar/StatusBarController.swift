@@ -997,10 +997,11 @@ private final class LimitsDashboardView: NSView {
             let remaining = window.remainingPercent
             let selectedWindow = isActive && window == active?.window
             drawText(Self.windowLabel(window), rect: NSRect(x: 45, y: y, width: bounds.width - 127, height: 16), font: .systemFont(ofSize: 11.5, weight: selectedWindow ? .semibold : .medium), color: state.isStale ? .secondaryLabelColor : .labelColor)
-            drawText("\(Int(remaining.rounded()))%", rect: NSRect(x: bounds.width - 72, y: y - 1, width: 56, height: 17), font: .monospacedDigitSystemFont(ofSize: 12, weight: .semibold), color: state.isStale ? .secondaryLabelColor : LimitPalette.color(for: remaining), alignment: .right)
+            let percentageY = y + (window.resetsAt == nil ? -1 : 17)
+            drawText("\(Int(remaining.rounded()))%", rect: NSRect(x: bounds.width - 72, y: percentageY, width: 56, height: 17), font: .monospacedDigitSystemFont(ofSize: 12, weight: .semibold), color: state.isStale ? .secondaryLabelColor : LimitPalette.color(for: remaining), alignment: .right)
             if let resetsAt = window.resetsAt {
                 let resetText = L10n.format("window.resetAt", Self.resetDateFormatter.string(from: resetsAt))
-                drawText(resetText, rect: NSRect(x: 45, y: y + 17, width: bounds.width - 61, height: 14), font: .systemFont(ofSize: 10, weight: .regular), color: .secondaryLabelColor)
+                drawText(resetText, rect: NSRect(x: 45, y: y + 17, width: bounds.width - 127, height: 14), font: .systemFont(ofSize: 10, weight: .regular), color: .secondaryLabelColor)
             }
             let progressY = y + (window.resetsAt == nil ? 22 : 35)
             drawProgress(remaining, rect: NSRect(x: 45, y: progressY, width: bounds.width - 61, height: selectedWindow ? 5 : 4), muted: state.isStale)

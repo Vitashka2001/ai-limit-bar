@@ -32,7 +32,7 @@ AI Limit Bar показывает наиболее актуальный свеж
 
 ## Установка
 
-Требуется macOS 13+, Codex для лимитов Codex и официальный Claude Code для актуальных лимитов Claude либо Claude Desktop как резерв. Скачайте `AI-Limit-Bar-2.4.6.dmg` из [последнего релиза](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), перетащите **AI Limit Bar** в `Applications` и запустите.
+Требуется macOS 13+, Codex для лимитов Codex и официальный Claude Code для актуальных лимитов Claude либо Claude Desktop как резерв. Скачайте `AI-Limit-Bar-2.4.7.dmg` из [последнего релиза](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), перетащите **AI Limit Bar** в `Applications` и запустите.
 
 Сборка локально подписана, но не нотарифицирована. Если macOS заблокирует первый запуск, нажмите приложение правой кнопкой, выберите **Открыть** и подтвердите.
 
