@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.3 - 2026-08-09
+
+- Launches the Claude Desktop fallback without activation and immediately hides it if Electron requests focus.
+- Restores the previously active application if Claude Desktop still takes focus during startup.
+- Never opens another Claude window when Desktop is already running and safely skips fallback when it is not installed.
+
 ## 2.4.2 - 2026-08-09
 
 - Made the manual refresh command bypass the background Claude Desktop cooldown.

@@ -51,6 +51,7 @@
 "claude.codeStale" = "Claude Code · %@ · очікування";
 "claude.desktopUpdated" = "Desktop · оновлено %@";
 "claude.desktopStale" = "Desktop · %@ · дані застаріли";
+"claude.desktopUnavailable" = "Desktop не встановлено · кеш від %@";
 "claude.refreshingViaDesktop" = "Оновлення через Desktop…";
 "claude.waitingForCode" = "Очікування першої відповіді Claude Code";
 "claude.noLiveSource" = "Джерело автооновлення Claude не знайдено";

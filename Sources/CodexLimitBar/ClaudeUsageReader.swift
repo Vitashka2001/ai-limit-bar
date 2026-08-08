@@ -71,10 +71,14 @@ enum ClaudeUsageReader {
     }
 
     static func desktopIsInstalled(fileManager: FileManager = .default) -> Bool {
-        let applicationURL = URL(fileURLWithPath: "/Applications/Claude.app")
-        let userApplicationURL = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Applications/Claude.app")
-        return fileManager.fileExists(atPath: applicationURL.path)
-            || fileManager.fileExists(atPath: userApplicationURL.path)
+        desktopApplicationURL(fileManager: fileManager) != nil
+    }
+
+    static func desktopApplicationURL(fileManager: FileManager = .default) -> URL? {
+        let candidates = [
+            URL(fileURLWithPath: "/Applications/Claude.app"),
+            fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications/Claude.app"),
+        ]
+        return candidates.first { fileManager.fileExists(atPath: $0.path) }
     }
 }

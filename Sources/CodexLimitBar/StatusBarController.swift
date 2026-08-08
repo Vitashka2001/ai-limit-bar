@@ -33,6 +33,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var claudeAutomaticRefreshEnabled = true
     private var claudeLastLaunchAttemptAt: Date?
     private var claudeDesktopRefreshPID: pid_t?
+    private var claudeDesktopLaunchID: UUID?
+    private var claudePreviousApplicationPID: pid_t?
     private var claudeRefreshChecksRemaining = 0
     private var clientConnected = false
     private var loginInProgress = false
@@ -309,7 +311,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             case (.claudeCode, true): key = "claude.codeUpdated"
             case (.claudeCode, false): key = "claude.codeStale"
             case (.desktop, true): key = "claude.desktopUpdated"
-            case (.desktop, false): key = "claude.desktopStale"
+            case (.desktop, false):
+                key = claudeDesktopIsInstalled ? "claude.desktopStale" : "claude.desktopUnavailable"
             }
             return ProviderDashboardState(
                 provider: .claude,
@@ -494,7 +497,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     private func refreshClaudeViaDesktopIfNeeded(now: Date = Date(), force: Bool = false) {
-        guard monitoringEnabled, claudeAutomaticRefreshEnabled, claudeDesktopIsInstalled else { return }
+        guard monitoringEnabled,
+              claudeAutomaticRefreshEnabled,
+              let applicationURL = ClaudeUsageReader.desktopApplicationURL() else { return }
         guard claudeRefreshChecksRemaining == 0 else { return }
 
         let needsRefresh: Bool
@@ -513,19 +518,47 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
 
         claudeLastLaunchAttemptAt = now
+        claudePreviousApplicationPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        claudeDesktopRefreshPID = nil
+        claudeRefreshChecksRemaining = 6
+        let launchID = UUID()
+        claudeDesktopLaunchID = launchID
+        render()
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-gj", "-a", "Claude"]
+        process.arguments = ["-gj", applicationURL.path]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         do {
             try process.run()
-            claudeDesktopRefreshPID = nil
-            claudeRefreshChecksRemaining = 6
-            render()
+            scheduleClaudeDesktopConcealmentCheck(launchID: launchID)
             scheduleClaudeDesktopRefreshCheck()
         } catch {
             logger.error("Could not launch Claude Desktop fallback: \(error.localizedDescription, privacy: .public)")
+            resetClaudeDesktopRefreshState()
+            render()
+        }
+    }
+
+    private func scheduleClaudeDesktopConcealmentCheck(launchID: UUID, attemptsRemaining: Int = 80) {
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self,
+                      self.claudeDesktopLaunchID == launchID,
+                      self.claudeRefreshChecksRemaining > 0 else { return }
+                if let application = NSRunningApplication.runningApplications(
+                    withBundleIdentifier: "com.anthropic.claudefordesktop"
+                ).first {
+                    self.concealOwnedClaudeDesktop(application)
+                }
+                if attemptsRemaining > 1 {
+                    self.scheduleClaudeDesktopConcealmentCheck(
+                        launchID: launchID,
+                        attemptsRemaining: attemptsRemaining - 1
+                    )
+                }
+            }
         }
     }
 
@@ -542,6 +575,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         )
         if claudeDesktopRefreshPID == nil {
             claudeDesktopRefreshPID = applications.first?.processIdentifier
+        }
+        if let application = applications.first(where: {
+            $0.processIdentifier == claudeDesktopRefreshPID
+        }) {
+            concealOwnedClaudeDesktop(application)
         }
 
         claudeResult = ClaudeUsageReader.read()
@@ -571,8 +609,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             ).first?.processIdentifier
         }
         let ownedPID = claudeDesktopRefreshPID
-        claudeDesktopRefreshPID = nil
-        claudeRefreshChecksRemaining = 0
+        resetClaudeDesktopRefreshState()
         guard let ownedPID,
               let application = NSRunningApplication(processIdentifier: ownedPID) else { return }
 
@@ -582,6 +619,29 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                   !running.isTerminated else { return }
             running.forceTerminate()
         }
+    }
+
+    private func resetClaudeDesktopRefreshState() {
+        claudeDesktopLaunchID = nil
+        claudeDesktopRefreshPID = nil
+        claudePreviousApplicationPID = nil
+        claudeRefreshChecksRemaining = 0
+    }
+
+    private func concealOwnedClaudeDesktop(_ application: NSRunningApplication) {
+        guard claudeRefreshChecksRemaining > 0,
+              application.bundleIdentifier == "com.anthropic.claudefordesktop",
+              claudeDesktopRefreshPID == nil || claudeDesktopRefreshPID == application.processIdentifier else {
+            return
+        }
+        claudeDesktopRefreshPID = application.processIdentifier
+        application.hide()
+
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == application.processIdentifier,
+              let previousPID = claudePreviousApplicationPID,
+              let previousApplication = NSRunningApplication(processIdentifier: previousPID),
+              !previousApplication.isTerminated else { return }
+        previousApplication.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
     }
 
     @objc private func claudeCodeUsageUpdated(_ notification: Notification) {
@@ -665,6 +725,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func activeApplicationChanged(_ notification: Notification) {
         let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+        if let application,
+           claudeRefreshChecksRemaining > 0,
+           application.bundleIdentifier == "com.anthropic.claudefordesktop" {
+            concealOwnedClaudeDesktop(application)
+            return
+        }
         frontmostProvider = provider(for: application)
         render()
     }

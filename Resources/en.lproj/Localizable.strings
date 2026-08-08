@@ -51,6 +51,7 @@
 "claude.codeStale" = "Claude Code · %@ · waiting";
 "claude.desktopUpdated" = "Desktop · updated %@";
 "claude.desktopStale" = "Desktop · %@ · stale";
+"claude.desktopUnavailable" = "Desktop not installed · cached %@";
 "claude.refreshingViaDesktop" = "Updating via Desktop…";
 "claude.waitingForCode" = "Waiting for the first Claude Code response";
 "claude.noLiveSource" = "No automatic Claude source found";

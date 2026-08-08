@@ -32,7 +32,7 @@ Codex data comes from the locally installed `codex app-server`. For Claude, the 
 
 Enable **Automatic Claude updates** once to install the local bridge in `~/.claude/settings.json`. It is available to Claude.ai Pro/Max subscribers after the first response in a Claude Code experience that runs `statusLine`. The VS Code side panel may not run it; in that case the Desktop fallback is used automatically. The bridge does not make network requests and never reads passwords, OAuth tokens, cookies, or API keys. If another status line is already configured, AI Limit Bar leaves it unchanged.
 
-When fresh Claude Code data is unavailable, automatic updates can briefly launch Claude Desktop hidden and read its `plan-usage-history.json`. AI Limit Bar tracks only the process it started, requests termination after fresh data arrives or after 30 seconds, and force-quits that same process if normal termination does not complete. Third-party IDE extensions such as Cline can use separate API billing and may not expose Claude.ai subscription limits.
+When fresh Claude Code data is unavailable, automatic updates can briefly launch Claude Desktop without activation and read its `plan-usage-history.json`. AI Limit Bar hides the process immediately, restores the previously active app if Electron requests focus, and terminates only the exact process it started after fresh data arrives or after 30 seconds. If Desktop is already running, no second launch occurs. If it is not installed, the fallback is skipped. Third-party IDE extensions such as Cline can use separate API billing and may not expose Claude.ai subscription limits.
 
 ## Requirements And Installation
 
@@ -40,7 +40,7 @@ When fresh Claude Code data is unavailable, automatic updates can briefly launch
 - Codex or the official Codex editor extension for Codex limits;
 - official Claude Code for live Claude limits, or Claude Desktop for cached fallback data.
 
-Download `AI-Limit-Bar-2.4.2.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.4.3.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 
