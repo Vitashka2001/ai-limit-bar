@@ -11,9 +11,9 @@ The app:
 - does not read or store passwords, cookies, session storage, access tokens, refresh tokens, or API keys;
 - does not request keyboard input, screen recording, microphone, camera, or broad file access;
 - receives Codex account and limit information from the locally installed `codex app-server`;
-- reads only Claude Desktop's local `plan-usage-history.json` usage cache for Claude percentages and timestamps.
+- reads only Claude Desktop's local `plan-usage-history.json` usage cache for Claude percentages, timestamps, and its non-secret organization identifier.
 
-Claude's local cache does not contain reset times. Data older than 15 minutes is marked as cached and is not used for automatic status-bar selection.
+Claude's local cache does not contain email, plan type, or reset times. Data older than 15 minutes is marked as cached and is not used for automatic status-bar selection.
 
 When the user switches Codex accounts, Codex opens its official browser authentication flow. The new account becomes active for other local Codex tools on the same Mac.
 

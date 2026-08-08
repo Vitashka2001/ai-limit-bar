@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.1 - 2026-08-08
+
+- Corrected the Codex mark using the official `@lobehub/icons` geometry.
+- Added provider marks to both account-switching actions and refined icon alignment.
+- Added safe Claude organization identification while keeping cache freshness visible.
+
 ## 2.1.0 - 2026-08-08
 
 - Removed the duplicated active-limit header from the dashboard.

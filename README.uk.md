@@ -24,7 +24,7 @@ Claude Desktop має працювати, щоб оновлювати кеш. К
 
 ## Установлення
 
-Потрібна macOS 13+, Codex для лімітів Codex і Claude Desktop для лімітів Claude. Завантажте `AI-Limit-Bar-2.1.0.dmg` з [останнього релізу](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), перетягніть **AI Limit Bar** до `Applications` і запустіть.
+Потрібна macOS 13+, Codex для лімітів Codex і Claude Desktop для лімітів Claude. Завантажте `AI-Limit-Bar-2.1.1.dmg` з [останнього релізу](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), перетягніть **AI Limit Bar** до `Applications` і запустіть.
 
 Збірка локально підписана, але не нотаризована. Якщо macOS заблокує перший запуск, натисніть застосунок правою кнопкою, виберіть **Відкрити** й підтвердьте.
 
@@ -49,6 +49,6 @@ swift test
 
 Готовий застосунок: `dist/AI Limit Bar.app`. Докладніше про дані: [PRIVACY.uk.md](PRIVACY.uk.md).
 
-Логотипи Codex і Claude взято з [LobeHub Icons](https://github.com/lobehub/lobe-icons), пакет `@lobehub/icons-static-svg` 1.94.0, ліцензія MIT. Копія ліцензії міститься в `Resources/ProviderIcons/LICENSE`.
+Логотипи Codex і Claude взято з [LobeHub Icons](https://github.com/lobehub/lobe-icons), пакет `@lobehub/icons` 5.15.0, ліцензія MIT. Копія ліцензії міститься в `Resources/ProviderIcons/LICENSE`.
 
 AI Limit Bar — незалежна open-source утиліта, не пов’язана з OpenAI або Anthropic. Ліцензія: [MIT](LICENSE).
