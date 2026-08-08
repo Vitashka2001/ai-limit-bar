@@ -238,11 +238,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         UserDefaults.standard.set(date, forKey: Self.codexLastUsageChangeDefaultsKey)
     }
 
-    private func refreshClaude() {
+    private func refreshClaude(forceDesktopRefresh: Bool = false) {
         claudeResult = ClaudeUsageReader.read()
         render()
         updateActionAvailability()
-        refreshClaudeViaDesktopIfNeeded()
+        refreshClaudeViaDesktopIfNeeded(force: forceDesktopRefresh)
     }
 
     private func render() {
@@ -445,7 +445,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     @objc private func refreshNow() {
         guard monitoringEnabled else { return }
         client.refresh()
-        refreshClaude()
+        refreshClaude(forceDesktopRefresh: true)
     }
 
     @objc private func toggleMonitoring() {
@@ -493,7 +493,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         claudeAutomaticRefreshItem.state = claudeAutomaticRefreshEnabled ? .on : .off
     }
 
-    private func refreshClaudeViaDesktopIfNeeded(now: Date = Date()) {
+    private func refreshClaudeViaDesktopIfNeeded(now: Date = Date(), force: Bool = false) {
         guard monitoringEnabled, claudeAutomaticRefreshEnabled, claudeDesktopIsInstalled else { return }
         guard claudeRefreshChecksRemaining == 0 else { return }
 
@@ -507,7 +507,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         guard NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.anthropic.claudefordesktop"
         ).isEmpty else { return }
-        if let lastAttempt = claudeLastLaunchAttemptAt,
+        if !force, let lastAttempt = claudeLastLaunchAttemptAt,
            now.timeIntervalSince(lastAttempt) < Self.claudeLaunchRetryInterval {
             return
         }
@@ -522,6 +522,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             try process.run()
             claudeDesktopRefreshPID = nil
             claudeRefreshChecksRemaining = 6
+            render()
             scheduleClaudeDesktopRefreshCheck()
         } catch {
             logger.error("Could not launch Claude Desktop fallback: \(error.localizedDescription, privacy: .public)")
@@ -544,21 +545,23 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
 
         claudeResult = ClaudeUsageReader.read()
-        render()
-        updateActionAvailability()
-        let receivedFreshDesktopData: Bool
+        let receivedFreshData: Bool
         if case .available(let snapshot) = claudeResult {
-            receivedFreshDesktopData = snapshot.source == .desktop && snapshot.isFresh()
+            receivedFreshData = snapshot.isFresh()
         } else {
-            receivedFreshDesktopData = false
+            receivedFreshData = false
         }
 
         claudeRefreshChecksRemaining -= 1
-        if !receivedFreshDesktopData, claudeRefreshChecksRemaining > 0 {
+        if !receivedFreshData, claudeRefreshChecksRemaining > 0 {
+            render()
+            updateActionAvailability()
             scheduleClaudeDesktopRefreshCheck()
             return
         }
         stopOwnedClaudeDesktop()
+        render()
+        updateActionAvailability()
     }
 
     private func stopOwnedClaudeDesktop() {

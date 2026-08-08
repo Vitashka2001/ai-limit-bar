@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.2 - 2026-08-09
+
+- Made the manual refresh command bypass the background Claude Desktop cooldown.
+- Updated the Claude dashboard immediately when a fallback refresh starts and finishes.
+
 ## 2.4.1 - 2026-08-08
 
 - Corrected vertical orientation of the Codex terminal glyph in flipped AppKit views.
