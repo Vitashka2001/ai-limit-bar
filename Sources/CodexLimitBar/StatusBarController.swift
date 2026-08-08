@@ -6,8 +6,11 @@ import OSLog
 final class StatusBarController: NSObject, NSMenuDelegate {
     private static let monitoringDefaultsKey = "monitoringEnabled"
     private static let claudeBackgroundRefreshDefaultsKey = "claudeBackgroundRefreshEnabled"
+    private static let codexUsageSignatureDefaultsKey = "codexUsageSignature"
+    private static let codexLastUsageChangeDefaultsKey = "codexLastUsageChangeAt"
     private static let minimumContentWidth: CGFloat = 420
     private static let recentActivityInterval: TimeInterval = 15 * 60
+    private static let dualActivityInterval: TimeInterval = 30 * 60
     private static let claudeLaunchRetryInterval: TimeInterval = 5 * 60
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: 90)
@@ -202,12 +205,29 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let signature = Dictionary(uniqueKeysWithValues: snapshot.windows.enumerated().map { index, window in
             (window.identifier ?? "\(window.windowDurationMinutes)-\(index)", window.usedPercent)
         })
-        if !codexUsageSignature.isEmpty, signature != codexUsageSignature {
-            codexLastUsageChangeAt = Date()
+        if codexUsageSignature.isEmpty {
+            let defaults = UserDefaults.standard
+            let storedSignature = defaults.dictionary(forKey: Self.codexUsageSignatureDefaultsKey)?
+                .compactMapValues { ($0 as? NSNumber)?.doubleValue }
+            if storedSignature == signature {
+                codexLastUsageChangeAt = defaults.object(
+                    forKey: Self.codexLastUsageChangeDefaultsKey
+                ) as? Date
+            } else {
+                recordCodexActivity(signature: signature)
+            }
+        } else if signature != codexUsageSignature {
+            recordCodexActivity(signature: signature)
         }
         codexUsageSignature = signature
         codexSnapshot = snapshot
         render()
+    }
+
+    private func recordCodexActivity(signature: [String: Double], at date: Date = Date()) {
+        codexLastUsageChangeAt = date
+        UserDefaults.standard.set(signature, forKey: Self.codexUsageSignatureDefaultsKey)
+        UserDefaults.standard.set(date, forKey: Self.codexLastUsageChangeDefaultsKey)
     }
 
     private func refreshClaude() {
@@ -225,22 +245,24 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                     ProviderDashboardState(provider: $0, status: L10n.string("dashboard.monitoringStopped"), windows: [])
                 }
             )
-            renderStatus(limit: nil, stateText: L10n.string("status.off"), tooltip: L10n.string("status.monitoringStopped.tooltip"))
+            renderStatus(limits: [], stateText: L10n.string("status.off"), tooltip: L10n.string("status.monitoringStopped.tooltip"))
             return
         }
 
-        let selected = selectDisplayedLimit()
-        dashboardView.update(active: selected, providers: [codexDashboardState(), claudeDashboardState()])
-        if let selected {
-            let title = L10n.format(
-                "limits.providerTooltip",
-                selected.provider.displayName,
-                windowLabel(selected.window),
-                Int(selected.window.remainingPercent.rounded())
-            )
-            renderStatus(limit: selected, stateText: nil, tooltip: title)
+        let selected = selectDisplayedLimits()
+        dashboardView.update(active: selected.first, providers: [codexDashboardState(), claudeDashboardState()])
+        if !selected.isEmpty {
+            let title = selected.map {
+                L10n.format(
+                    "limits.providerTooltip",
+                    $0.provider.displayName,
+                    windowLabel($0.window),
+                    Int($0.window.remainingPercent.rounded())
+                )
+            }.joined(separator: "\n")
+            renderStatus(limits: selected, stateText: nil, tooltip: title)
         } else {
-            renderStatus(limit: nil, stateText: "--", tooltip: L10n.string("limits.noFreshData"))
+            renderStatus(limits: [], stateText: "--", tooltip: L10n.string("limits.noFreshData"))
         }
     }
 
@@ -281,7 +303,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    private func selectDisplayedLimit(now: Date = Date()) -> DisplayedLimit? {
+    private func selectDisplayedLimits(now: Date = Date()) -> [DisplayedLimit] {
         var candidates: [(limit: DisplayedLimit, activity: Date?)] = []
         if clientConnected, let window = codexSnapshot?.mostConstrainedWindow {
             candidates.append((DisplayedLimit(provider: .codex, window: window), codexLastUsageChangeAt))
@@ -291,26 +313,43 @@ final class StatusBarController: NSObject, NSMenuDelegate {
            let window = claude.limits.mostConstrainedWindow {
             candidates.append((DisplayedLimit(provider: .claude, window: window), claude.lastUsageChangeAt))
         }
-        guard !candidates.isEmpty else { return nil }
+        guard !candidates.isEmpty else { return [] }
 
-        let critical = candidates.filter { $0.limit.window.remainingPercent < 20 }
-        if let lowest = critical.min(by: { $0.limit.window.remainingPercent < $1.limit.window.remainingPercent }) {
-            return lowest.limit
+        let dualSession = candidates.filter {
+            guard let activity = $0.activity else { return false }
+            return now.timeIntervalSince(activity) <= Self.dualActivityInterval
+        }
+        if dualSession.count > 1 {
+            return dualSession
+                .sorted { left, right in
+                    let leftIndex = AIProvider.allCases.firstIndex(of: left.limit.provider) ?? 0
+                    let rightIndex = AIProvider.allCases.firstIndex(of: right.limit.provider) ?? 0
+                    return leftIndex < rightIndex
+                }
+                .map(\.limit)
         }
 
         let recentlyUsed = candidates.filter {
             guard let activity = $0.activity else { return false }
             return now.timeIntervalSince(activity) <= Self.recentActivityInterval
         }
+
+        let critical = candidates.filter { $0.limit.window.remainingPercent < 20 }
+        if let lowest = critical.min(by: { $0.limit.window.remainingPercent < $1.limit.window.remainingPercent }) {
+            return [lowest.limit]
+        }
+
         if let latest = recentlyUsed.max(by: { ($0.activity ?? .distantPast) < ($1.activity ?? .distantPast) }) {
-            return latest.limit
+            return [latest.limit]
         }
 
         if let frontmostProvider,
            let frontmost = candidates.first(where: { $0.limit.provider == frontmostProvider }) {
-            return frontmost.limit
+            return [frontmost.limit]
         }
-        return candidates.min(by: { $0.limit.window.remainingPercent < $1.limit.window.remainingPercent })?.limit
+        return candidates
+            .min(by: { $0.limit.window.remainingPercent < $1.limit.window.remainingPercent })
+            .map { [$0.limit] } ?? []
     }
 
     private func accountDescription(_ account: CodexAccount) -> String {
@@ -326,8 +365,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    private func renderStatus(limit: DisplayedLimit?, stateText: String?, tooltip: String) {
-        statusItem.button?.image = LimitStatusImage.make(limit: limit, stateText: stateText)
+    private func renderStatus(limits: [DisplayedLimit], stateText: String?, tooltip: String) {
+        statusItem.length = LimitStatusImage.width(for: limits.count)
+        statusItem.button?.image = LimitStatusImage.make(limits: limits, stateText: stateText)
         statusItem.button?.toolTip = tooltip
         statusItem.button?.setAccessibilityLabel(tooltip)
     }
@@ -699,43 +739,71 @@ private final class LimitsDashboardView: NSView {
 
 @MainActor
 private enum LimitStatusImage {
-    static func make(limit: DisplayedLimit?, stateText: String?) -> NSImage {
-        let size = NSSize(width: 88, height: 18)
-        let image = NSImage(size: size, flipped: false) { _ in
-            let value = limit.map { "\(Int($0.window.remainingPercent.rounded()))%" } ?? (stateText ?? "--")
-            let window = limit.map { shortLabel($0.window) } ?? ""
-            let windowAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .medium),
-                .foregroundColor: NSColor.secondaryLabelColor,
-            ]
-            let valueAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .semibold),
-                .foregroundColor: NSColor.labelColor,
-            ]
-            let valueWidth = value.size(withAttributes: valueAttributes).width
-            let windowWidth = window.size(withAttributes: windowAttributes).width
-            if let limit {
-                let contentWidth = 14 + 4 + windowWidth + 5 + valueWidth
-                let contentX = (size.width - contentWidth) / 2
-                ProviderIcon.draw(limit.provider, in: NSRect(x: contentX, y: 4, width: 14, height: 14), color: .labelColor)
-                window.draw(at: NSPoint(x: contentX + 18, y: 5.5), withAttributes: windowAttributes)
-                value.draw(at: NSPoint(x: contentX + 18 + windowWidth + 5, y: 4), withAttributes: valueAttributes)
-            } else {
-                value.draw(at: NSPoint(x: (size.width - valueWidth) / 2, y: 4), withAttributes: valueAttributes)
-            }
+    private static let singleWidth: CGFloat = 88
+    private static let dualWidth: CGFloat = 158
+    private static let segmentGap: CGFloat = 8
 
-            let track = NSRect(x: 2, y: 0, width: size.width - 4, height: 2)
-            NSColor.tertiaryLabelColor.withAlphaComponent(0.28).setFill()
-            NSBezierPath(roundedRect: track, xRadius: 1, yRadius: 1).fill()
-            if let limit, limit.window.remainingPercent > 0 {
-                let fill = NSRect(x: track.minX, y: track.minY, width: max(3, track.width * limit.window.remainingPercent / 100), height: track.height)
-                LimitPalette.color(for: limit.window.remainingPercent).setFill()
-                NSBezierPath(roundedRect: fill, xRadius: 1, yRadius: 1).fill()
+    static func width(for limitCount: Int) -> CGFloat {
+        limitCount > 1 ? dualWidth + 2 : singleWidth + 2
+    }
+
+    static func make(limits: [DisplayedLimit], stateText: String?) -> NSImage {
+        let size = NSSize(width: limits.count > 1 ? dualWidth : singleWidth, height: 18)
+        let image = NSImage(size: size, flipped: false) { _ in
+            if limits.count > 1 {
+                let segmentWidth = (size.width - segmentGap) / 2
+                draw(limits[0], in: NSRect(x: 0, y: 0, width: segmentWidth, height: size.height))
+                draw(limits[1], in: NSRect(x: segmentWidth + segmentGap, y: 0, width: segmentWidth, height: size.height))
+                NSColor.separatorColor.withAlphaComponent(0.8).setFill()
+                NSRect(x: segmentWidth + segmentGap / 2, y: 4, width: 1, height: 12).fill()
+            } else if let limit = limits.first {
+                draw(limit, in: NSRect(origin: .zero, size: size))
+            } else {
+                let value = stateText ?? "--"
+                let valueAttributes: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .semibold),
+                    .foregroundColor: NSColor.labelColor,
+                ]
+                let valueWidth = value.size(withAttributes: valueAttributes).width
+                value.draw(at: NSPoint(x: (size.width - valueWidth) / 2, y: 4), withAttributes: valueAttributes)
             }
             return true
         }
         image.isTemplate = false
         return image
+    }
+
+    private static func draw(_ limit: DisplayedLimit, in rect: NSRect) {
+        let value = "\(Int(limit.window.remainingPercent.rounded()))%"
+        let window = shortLabel(limit.window)
+        let windowAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .medium),
+            .foregroundColor: NSColor.secondaryLabelColor,
+        ]
+        let valueAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .semibold),
+            .foregroundColor: NSColor.labelColor,
+        ]
+        let valueWidth = value.size(withAttributes: valueAttributes).width
+        let windowWidth = window.size(withAttributes: windowAttributes).width
+        let contentWidth = 14 + 3 + windowWidth + 4 + valueWidth
+        let contentX = rect.minX + (rect.width - contentWidth) / 2
+        ProviderIcon.draw(limit.provider, in: NSRect(x: contentX, y: 4, width: 14, height: 14), color: .labelColor)
+        window.draw(at: NSPoint(x: contentX + 17, y: 5.5), withAttributes: windowAttributes)
+        value.draw(at: NSPoint(x: contentX + 17 + windowWidth + 4, y: 4), withAttributes: valueAttributes)
+
+        let track = NSRect(x: rect.minX + 2, y: 0, width: rect.width - 4, height: 2)
+        NSColor.tertiaryLabelColor.withAlphaComponent(0.28).setFill()
+        NSBezierPath(roundedRect: track, xRadius: 1, yRadius: 1).fill()
+        guard limit.window.remainingPercent > 0 else { return }
+        let fill = NSRect(
+            x: track.minX,
+            y: track.minY,
+            width: max(3, track.width * limit.window.remainingPercent / 100),
+            height: track.height
+        )
+        LimitPalette.color(for: limit.window.remainingPercent).setFill()
+        NSBezierPath(roundedRect: fill, xRadius: 1, yRadius: 1).fill()
     }
 
     private static func shortLabel(_ window: RateLimitWindow) -> String {
@@ -762,14 +830,7 @@ private enum ProviderIcon {
     static func draw(_ provider: AIProvider, in rect: NSRect, color: NSColor) {
         if let image = sourceImage(for: provider) {
             if provider == .codex {
-                NSGraphicsContext.saveGraphicsState()
-                NSBezierPath(
-                    roundedRect: rect,
-                    xRadius: rect.width * 0.22,
-                    yRadius: rect.height * 0.22
-                ).addClip()
                 image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: color.alphaComponent)
-                NSGraphicsContext.restoreGraphicsState()
             } else {
                 draw(image, in: rect, color: color)
             }

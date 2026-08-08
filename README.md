@@ -15,6 +15,7 @@ AI Limit Bar shows the most relevant fresh quota in the menu bar and all detecte
 ## Features
 
 - automatically follows recent Codex or Claude activity;
+- shows Codex and Claude side by side when both were active in the current 30-minute work session;
 - always prioritizes a fresh critical limit below 20%;
 - shows every detected 5-hour and weekly quota;
 - green at 50–100%, yellow at 20–49%, and red below 20%;
@@ -38,7 +39,7 @@ Claude Code usage in a supported IDE can count toward the same subscription limi
 - Codex or the official Codex editor extension for Codex limits;
 - Claude Desktop for Claude limits.
 
-Download `AI-Limit-Bar-2.2.0.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.3.0.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 

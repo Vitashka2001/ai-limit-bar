@@ -21,8 +21,7 @@ enum AIProvider: String, CaseIterable, Sendable {
 
     var iconAssetExtension: String {
         switch self {
-        case .codex: return "webp"
-        case .claude: return "svg"
+        case .codex, .claude: return "svg"
         }
     }
 

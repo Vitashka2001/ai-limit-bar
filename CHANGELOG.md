@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.0 - 2026-08-08
+
+- Replaced the removed custom Codex artwork with official `Codex.Color` from `@lobehub/icons` 5.15.0.
+- Added a dual-provider menu-bar mode for concurrent Codex and Claude activity.
+- Split the menu-bar progress track into two independently colored segments.
+- Preserved Codex activity across app restarts and added a 30-minute shared-session window.
+
 ## 2.2.0 - 2026-08-08
 
 - Restored the complete supplied Codex artwork instead of extracting its cloud silhouette.
