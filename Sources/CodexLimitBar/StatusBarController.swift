@@ -940,6 +940,10 @@ private struct ProviderDashboardState {
 }
 
 private final class LimitsDashboardView: NSView {
+    private static let providerHeaderHeight: CGFloat = 50
+    private static let compactWindowHeight: CGFloat = 35
+    private static let resetWindowHeight: CGFloat = 47
+
     private var active: DisplayedLimit?
     private var providers: [ProviderDashboardState] = []
 
@@ -947,7 +951,8 @@ private final class LimitsDashboardView: NSView {
 
     var desiredHeight: CGFloat {
         providers.reduce(CGFloat.zero) { result, provider in
-            result + 50 + CGFloat(provider.windows.count) * 35
+            result + Self.providerHeaderHeight
+                + provider.windows.reduce(CGFloat.zero) { $0 + Self.windowHeight(for: $1) }
         }
     }
 
@@ -973,7 +978,8 @@ private final class LimitsDashboardView: NSView {
 
     private func drawProvider(_ state: ProviderDashboardState, at originY: CGFloat) -> CGFloat {
         let isActive = active?.provider == state.provider
-        let sectionHeight = 50 + CGFloat(state.windows.count) * 35
+        let sectionHeight = Self.providerHeaderHeight
+            + state.windows.reduce(CGFloat.zero) { $0 + Self.windowHeight(for: $1) }
         if isActive, let remaining = active?.window.remainingPercent {
             LimitPalette.color(for: remaining).withAlphaComponent(0.07).setFill()
             NSRect(x: 0, y: originY, width: bounds.width, height: sectionHeight - 1).fill()
@@ -992,8 +998,13 @@ private final class LimitsDashboardView: NSView {
             let selectedWindow = isActive && window == active?.window
             drawText(Self.windowLabel(window), rect: NSRect(x: 45, y: y, width: bounds.width - 127, height: 16), font: .systemFont(ofSize: 11.5, weight: selectedWindow ? .semibold : .medium), color: state.isStale ? .secondaryLabelColor : .labelColor)
             drawText("\(Int(remaining.rounded()))%", rect: NSRect(x: bounds.width - 72, y: y - 1, width: 56, height: 17), font: .monospacedDigitSystemFont(ofSize: 12, weight: .semibold), color: state.isStale ? .secondaryLabelColor : LimitPalette.color(for: remaining), alignment: .right)
-            drawProgress(remaining, rect: NSRect(x: 45, y: y + 22, width: bounds.width - 61, height: selectedWindow ? 5 : 4), muted: state.isStale)
-            y += 35
+            if let resetsAt = window.resetsAt {
+                let resetText = L10n.format("window.resetAt", Self.resetDateFormatter.string(from: resetsAt))
+                drawText(resetText, rect: NSRect(x: 45, y: y + 17, width: bounds.width - 61, height: 14), font: .systemFont(ofSize: 10, weight: .regular), color: .secondaryLabelColor)
+            }
+            let progressY = y + (window.resetsAt == nil ? 22 : 35)
+            drawProgress(remaining, rect: NSRect(x: 45, y: progressY, width: bounds.width - 61, height: selectedWindow ? 5 : 4), muted: state.isStale)
+            y += Self.windowHeight(for: window)
         }
         drawDivider(y: y - 1)
         return y + 2
@@ -1014,6 +1025,19 @@ private final class LimitsDashboardView: NSView {
             return L10n.string("window.limit")
         }
     }
+
+    private static func windowHeight(for window: RateLimitWindow) -> CGFloat {
+        window.resetsAt == nil ? compactWindowHeight : resetWindowHeight
+    }
+
+    private static let resetDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = L10n.language.locale
+        formatter.doesRelativeDateFormatting = true
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     private func drawProgress(_ percent: Double?, rect: NSRect, muted: Bool = false) {
         NSColor.tertiaryLabelColor.withAlphaComponent(0.28).setFill()
