@@ -18,6 +18,7 @@ AI Limit Bar shows the most relevant fresh quota in the menu bar and all detecte
 - shows Codex and Claude side by side when both were active in the current 30-minute work session;
 - always prioritizes a fresh critical limit below 20%;
 - shows every detected 5-hour and weekly quota;
+- lets you hide Codex or Claude from both the dashboard and menu-bar indicator;
 - green at 50–100%, yellow at 20–49%, and red below 20%;
 - supports Codex account switching and opens Claude Desktop directly at profile settings;
 - receives live Claude limits from the official Claude Code status-line interface;
@@ -41,13 +42,14 @@ When fresh Claude Code data is unavailable, automatic updates can briefly launch
 - Codex or the official Codex editor extension for Codex limits;
 - official Claude Code for live Claude limits, or Claude Desktop for cached fallback data.
 
-Download `AI-Limit-Bar-2.4.4.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.4.5.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 
 ## Controls
 
 - **Limit monitoring** pauses all background updates.
+- **Displayed services** hides Codex or Claude and stops that service's polling. At least one service remains visible.
 - **Automatic Claude updates** prefers fresh Claude Code data and uses Desktop only as a fallback.
 - **Switch Codex account...** opens Codex's official browser sign-in.
 - **Switch Claude account...** opens Claude Desktop profile settings. Without Desktop, **Set up Claude tracking...** offers the official Claude Code guide and Desktop download.
@@ -56,6 +58,8 @@ The public build is locally signed but not notarized. If macOS blocks the first 
 - **Quit completely** closes the app.
 
 To disable the utility completely, turn off **Launch at login** and choose **Quit completely**. Open it again from `Applications` whenever needed.
+
+When no Claude source is configured, the setup recommendation appears automatically only once. It remains available later through **Set up Claude tracking...**, but refreshes never open it by themselves.
 
 ## Build
 

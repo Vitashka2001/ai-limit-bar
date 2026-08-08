@@ -6,6 +6,9 @@ import OSLog
 final class StatusBarController: NSObject, NSMenuDelegate {
     private static let monitoringDefaultsKey = "monitoringEnabled"
     private static let claudeAutomaticRefreshDefaultsKey = "claudeAutomaticRefreshEnabled"
+    private static let codexVisibleDefaultsKey = "codexProviderVisible"
+    private static let claudeVisibleDefaultsKey = "claudeProviderVisible"
+    private static let claudeSetupPromptShownDefaultsKey = "claudeSetupPromptShown"
     private static let codexUsageSignatureDefaultsKey = "codexUsageSignature"
     private static let codexLastUsageChangeDefaultsKey = "codexLastUsageChangeAt"
     private static let minimumContentWidth: CGFloat = 420
@@ -18,6 +21,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private let dashboardView = LimitsDashboardView(frame: NSRect(x: 0, y: 0, width: 420, height: 235))
     private let logger = Logger(subsystem: "com.vitashka2001.AILimitBar", category: "limits")
     private let monitoringItem = NSMenuItem(title: L10n.string("menu.monitoring"), action: nil, keyEquivalent: "")
+    private let displayedProvidersItem = NSMenuItem(title: L10n.string("menu.displayedProviders"), action: nil, keyEquivalent: "")
+    private let showCodexItem = NSMenuItem(title: "Codex", action: nil, keyEquivalent: "")
+    private let showClaudeItem = NSMenuItem(title: "Claude", action: nil, keyEquivalent: "")
     private let claudeAutomaticRefreshItem = NSMenuItem(title: L10n.string("menu.claudeAutomaticRefresh"), action: nil, keyEquivalent: "")
     private let switchAccountItem = NSMenuItem(title: L10n.string("menu.switchAccount"), action: nil, keyEquivalent: "")
     private let switchClaudeAccountItem = NSMenuItem(title: L10n.string("menu.switchClaudeAccount"), action: nil, keyEquivalent: "")
@@ -31,6 +37,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var account: CodexAccount?
     private var monitoringEnabled = true
     private var claudeAutomaticRefreshEnabled = true
+    private var codexProviderVisible = true
+    private var claudeProviderVisible = true
     private var claudeLastLaunchAttemptAt: Date?
     private var claudeDesktopRefreshPID: pid_t?
     private var claudeDesktopLaunchID: UUID?
@@ -44,6 +52,16 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     override init() {
         super.init()
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: Self.codexVisibleDefaultsKey) != nil {
+            codexProviderVisible = defaults.bool(forKey: Self.codexVisibleDefaultsKey)
+        }
+        if defaults.object(forKey: Self.claudeVisibleDefaultsKey) != nil {
+            claudeProviderVisible = defaults.bool(forKey: Self.claudeVisibleDefaultsKey)
+        }
+        if !codexProviderVisible && !claudeProviderVisible {
+            codexProviderVisible = true
+        }
         frontmostProvider = provider(for: NSWorkspace.shared.frontmostApplication)
         configureStatusItem()
         configureClient()
@@ -68,6 +86,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let storedValue = UserDefaults.standard.object(forKey: Self.monitoringDefaultsKey) as? Bool
         setMonitoringEnabled(storedValue ?? true, persist: false)
         refreshLaunchAtLoginState()
+        scheduleInitialClaudeSetupRecommendation()
     }
 
     func stop() {
@@ -89,6 +108,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         configureMenuItem(monitoringItem, action: #selector(toggleMonitoring), symbol: "chart.bar.fill")
+        configureDisplayedProvidersMenu()
         configureMenuItem(
             claudeAutomaticRefreshItem,
             action: #selector(toggleClaudeAutomaticRefresh),
@@ -98,6 +118,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         configureProviderMenuItem(switchClaudeAccountItem, action: #selector(switchClaudeAccount), provider: .claude)
         configureMenuItem(launchAtLoginItem, action: #selector(toggleLaunchAtLogin), symbol: "power")
         menu.addItem(monitoringItem)
+        menu.addItem(displayedProvidersItem)
         menu.addItem(claudeAutomaticRefreshItem)
         menu.addItem(switchAccountItem)
         menu.addItem(switchClaudeAccountItem)
@@ -148,6 +169,22 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             submenu.addItem(item)
         }
         languageItem.submenu = submenu
+    }
+
+    private func configureDisplayedProvidersMenu() {
+        if let image = NSImage(systemSymbolName: "eye", accessibilityDescription: displayedProvidersItem.title) {
+            image.isTemplate = true
+            displayedProvidersItem.image = image
+        }
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+        for (item, provider) in [(showCodexItem, AIProvider.codex), (showClaudeItem, AIProvider.claude)] {
+            configureProviderMenuItem(item, action: #selector(toggleProviderVisibility), provider: provider)
+            item.representedObject = provider.rawValue
+            submenu.addItem(item)
+        }
+        displayedProvidersItem.submenu = submenu
+        refreshProviderVisibilityState()
     }
 
     private func configureClient() {
@@ -251,7 +288,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         guard monitoringEnabled else {
             dashboardView.update(
                 active: nil,
-                providers: AIProvider.allCases.map {
+                providers: visibleProviders.map {
                     ProviderDashboardState(provider: $0, status: L10n.string("dashboard.monitoringStopped"), windows: [])
                 }
             )
@@ -260,7 +297,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
 
         let selected = selectDisplayedLimits()
-        dashboardView.update(active: selected.first, providers: [codexDashboardState(), claudeDashboardState()])
+        let providers = visibleProviders.map { provider in
+            switch provider {
+            case .codex: return codexDashboardState()
+            case .claude: return claudeDashboardState()
+            }
+        }
+        dashboardView.update(active: selected.first, providers: providers)
         if !selected.isEmpty {
             let title = selected.map {
                 L10n.format(
@@ -337,10 +380,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     private func selectDisplayedLimits(now: Date = Date()) -> [DisplayedLimit] {
         var candidates: [(limit: DisplayedLimit, activity: Date?)] = []
-        if clientConnected, let window = codexSnapshot?.mostConstrainedWindow {
+        if codexProviderVisible, clientConnected, let window = codexSnapshot?.mostConstrainedWindow {
             candidates.append((DisplayedLimit(provider: .codex, window: window), codexLastUsageChangeAt))
         }
-        if case .available(let claude) = claudeResult,
+        if claudeProviderVisible,
+           case .available(let claude) = claudeResult,
            claude.isFresh(at: now),
            let window = claude.limits.mostConstrainedWindow {
             candidates.append((DisplayedLimit(provider: .claude, window: window), claude.lastUsageChangeAt))
@@ -408,8 +452,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         guard refreshTimer == nil else { return }
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.client.refresh()
-                self?.refreshClaude()
+                guard let self else { return }
+                if self.codexProviderVisible { self.client.refresh() }
+                if self.claudeProviderVisible { self.refreshClaude() }
             }
         }
     }
@@ -420,12 +465,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         if persist { UserDefaults.standard.set(enabled, forKey: Self.monitoringDefaultsKey) }
 
         if enabled {
-            client.start()
-            refreshClaude()
+            if codexProviderVisible { client.start() }
+            if claudeProviderVisible { refreshClaude() }
             startRefreshTimer()
         } else {
             refreshTimer?.invalidate()
             refreshTimer = nil
+            stopOwnedClaudeDesktop()
             client.stop()
             clientConnected = false
             loginInProgress = false
@@ -436,12 +482,16 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     private func updateActionAvailability() {
         refreshItem.isEnabled = monitoringEnabled
-        switchAccountItem.isEnabled = monitoringEnabled && (clientConnected || loginInProgress)
-        switchClaudeAccountItem.isEnabled = monitoringEnabled
+        switchAccountItem.isHidden = !codexProviderVisible
+        switchClaudeAccountItem.isHidden = !claudeProviderVisible
+        claudeAutomaticRefreshItem.isHidden = !claudeProviderVisible
+        switchAccountItem.isEnabled = monitoringEnabled && codexProviderVisible && (clientConnected || loginInProgress)
+        switchClaudeAccountItem.isEnabled = monitoringEnabled && claudeProviderVisible
         switchClaudeAccountItem.title = L10n.string(
             claudeDesktopIsInstalled ? "menu.switchClaudeAccount" : "menu.setupClaude"
         )
-        claudeAutomaticRefreshItem.isEnabled = true
+        claudeAutomaticRefreshItem.isEnabled = monitoringEnabled && claudeProviderVisible
+        refreshProviderVisibilityState()
     }
 
     private var claudeDesktopIsInstalled: Bool {
@@ -450,11 +500,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func refreshNow() {
         guard monitoringEnabled else { return }
-        client.refresh()
-        refreshClaude(forceDesktopRefresh: true)
-        if shouldRecommendClaudeSetup {
-            showClaudeSetupRecommendation()
-        }
+        if codexProviderVisible { client.refresh() }
+        if claudeProviderVisible { refreshClaude(forceDesktopRefresh: true) }
     }
 
     @objc private func toggleMonitoring() {
@@ -496,9 +543,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         if !enabling { stopOwnedClaudeDesktop() }
         refreshClaudeAutomaticRefreshState()
         refreshClaude()
-        if enabling, shouldRecommendClaudeSetup {
-            showClaudeSetupRecommendation()
-        }
     }
 
     private func refreshClaudeAutomaticRefreshState() {
@@ -507,6 +551,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     private func refreshClaudeViaDesktopIfNeeded(now: Date = Date(), force: Bool = false) {
         guard monitoringEnabled,
+              claudeProviderVisible,
               claudeAutomaticRefreshEnabled,
               let applicationURL = ClaudeUsageReader.desktopApplicationURL() else { return }
         guard claudeRefreshChecksRemaining == 0 else { return }
@@ -654,7 +699,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func claudeCodeUsageUpdated(_ notification: Notification) {
-        guard monitoringEnabled else { return }
+        guard monitoringEnabled, claudeProviderVisible else { return }
         refreshClaude()
     }
 
@@ -693,12 +738,68 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    private var shouldRecommendClaudeSetup: Bool {
-        guard !claudeDesktopIsInstalled else { return false }
-        if case .available(let snapshot) = claudeResult {
-            return !snapshot.isFresh()
+    private var hasConfiguredClaudeSource: Bool {
+        claudeDesktopIsInstalled
+            || (ClaudeCodeIntegration.isAvailable && ClaudeCodeIntegration.isInstalled)
+    }
+
+    private var visibleProviders: [AIProvider] {
+        AIProvider.allCases.filter { provider in
+            switch provider {
+            case .codex: return codexProviderVisible
+            case .claude: return claudeProviderVisible
+            }
         }
-        return true
+    }
+
+    private func scheduleInitialClaudeSetupRecommendation() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.claudeSetupPromptShownDefaultsKey) else { return }
+        defaults.set(true, forKey: Self.claudeSetupPromptShownDefaultsKey)
+        guard monitoringEnabled, claudeProviderVisible, !hasConfiguredClaudeSource else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.claudeProviderVisible, !self.hasConfiguredClaudeSource else { return }
+            self.showClaudeSetupRecommendation()
+        }
+    }
+
+    @objc private func toggleProviderVisibility(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let provider = AIProvider(rawValue: rawValue) else { return }
+        switch provider {
+        case .codex:
+            guard !codexProviderVisible || claudeProviderVisible else { return }
+            codexProviderVisible.toggle()
+            UserDefaults.standard.set(codexProviderVisible, forKey: Self.codexVisibleDefaultsKey)
+            if monitoringEnabled {
+                if codexProviderVisible {
+                    client.start()
+                } else {
+                    if loginInProgress { client.cancelLogin() }
+                    client.stop()
+                    clientConnected = false
+                    loginInProgress = false
+                }
+            }
+        case .claude:
+            guard !claudeProviderVisible || codexProviderVisible else { return }
+            claudeProviderVisible.toggle()
+            UserDefaults.standard.set(claudeProviderVisible, forKey: Self.claudeVisibleDefaultsKey)
+            if claudeProviderVisible, monitoringEnabled {
+                refreshClaude()
+            } else {
+                stopOwnedClaudeDesktop()
+            }
+        }
+        render()
+        updateActionAvailability()
+    }
+
+    private func refreshProviderVisibilityState() {
+        showCodexItem.state = codexProviderVisible ? .on : .off
+        showClaudeItem.state = claudeProviderVisible ? .on : .off
+        showCodexItem.isEnabled = !codexProviderVisible || claudeProviderVisible
+        showClaudeItem.isEnabled = !claudeProviderVisible || codexProviderVisible
     }
 
     private func showClaudeSetupRecommendation() {
@@ -796,8 +897,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         refreshLaunchAtLoginState()
         if monitoringEnabled {
-            client.refresh()
-            refreshClaude()
+            if codexProviderVisible { client.refresh() }
+            if claudeProviderVisible { refreshClaude() }
         }
         menu.update()
         let width = max(Self.minimumContentWidth, menu.size.width)

@@ -1,4 +1,5 @@
 "menu.monitoring" = "Limit monitoring";
+"menu.displayedProviders" = "Displayed services";
 "menu.claudeAutomaticRefresh" = "Automatic Claude updates";
 "menu.switchAccount" = "Switch Codex account...";
 "menu.switchClaudeAccount" = "Switch Claude account...";

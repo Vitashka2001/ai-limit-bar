@@ -1,4 +1,5 @@
 "menu.monitoring" = "Мониторинг лимитов";
+"menu.displayedProviders" = "Отображаемые сервисы";
 "menu.claudeAutomaticRefresh" = "Автообновление Claude";
 "menu.switchAccount" = "Сменить аккаунт Codex...";
 "menu.switchClaudeAccount" = "Сменить аккаунт Claude...";

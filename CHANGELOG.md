@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.5 - 2026-08-09
+
+- Adds persistent Codex and Claude visibility controls while always keeping at least one service visible.
+- Stops polling and hides related controls for a hidden service, including Claude Desktop fallback launches.
+- Shows the automatic Claude setup recommendation at most once, on the first unconfigured launch.
+
 ## 2.4.4 - 2026-08-09
 
 - Adds a guided Claude setup prompt when no live limit source is available.
