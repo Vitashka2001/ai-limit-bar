@@ -3,7 +3,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-APP_NAME="Codex Limit Bar"
+APP_NAME="AI Limit Bar"
 APP="$ROOT/dist/$APP_NAME.app"
 CONTENTS="$APP/Contents"
 PLIST="$ROOT/Resources/CodexLimitBar-Info.plist"
@@ -28,7 +28,7 @@ for ARCH in $ARCHS; do
         --triple "$TRIPLE" \
         --disable-sandbox \
         -c release \
-        --product codex-limit-bar
+        --product ai-limit-bar
     BIN_DIR=$(swift build \
         --package-path "$ROOT" \
         --scratch-path "$BUILD_PATH" \
@@ -36,17 +36,17 @@ for ARCH in $ARCHS; do
         --disable-sandbox \
         -c release \
         --show-bin-path)
-    cp "$BIN_DIR/codex-limit-bar" "$BINARY_STAGING/$ARCH"
+    cp "$BIN_DIR/ai-limit-bar" "$BINARY_STAGING/$ARCH"
 done
 
 set -- $ARCHS
 if [ "$#" -eq 1 ]; then
-    cp "$BINARY_STAGING/$1" "$CONTENTS/MacOS/CodexLimitBar"
+    cp "$BINARY_STAGING/$1" "$CONTENTS/MacOS/AILimitBar"
 elif [ "$#" -eq 2 ]; then
     xcrun lipo -create \
         "$BINARY_STAGING/$1" \
         "$BINARY_STAGING/$2" \
-        -output "$CONTENTS/MacOS/CodexLimitBar"
+        -output "$CONTENTS/MacOS/AILimitBar"
 else
     printf 'Expected one or two architectures, received: %s\n' "$ARCHS" >&2
     exit 1

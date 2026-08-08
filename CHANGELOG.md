@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.0 - 2026-08-08
+
+- Renamed the app to AI Limit Bar.
+- Added safe local Claude Desktop usage tracking without reading credentials.
+- Added automatic provider selection based on critical limits, recent activity, and the frontmost AI app.
+- Replaced the single-provider menu with a combined Codex and Claude dashboard.
+- Added provider marks, freshness states, and stale-data protection.
+- Preserved preferences and launch-at-login settings from Codex Limit Bar.
+
 ## 1.1.1 - 2026-07-19
 
 - Made the limit gauge and information rows follow the full menu width on every language.

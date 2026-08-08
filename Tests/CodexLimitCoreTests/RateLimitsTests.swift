@@ -40,6 +40,30 @@ import Testing
     #expect(RateLimitIndicatorLevel(remainingPercent: 0) == .red)
 }
 
+@Test func selectsTheMostConstrainedWindow() {
+    let snapshot = RateLimitSnapshot(planType: nil, windows: [
+        RateLimitWindow(usedPercent: 20, windowDurationMinutes: 300, resetsAt: nil),
+        RateLimitWindow(usedPercent: 85, windowDurationMinutes: 10_080, resetsAt: nil),
+    ])
+    #expect(snapshot.mostConstrainedWindow?.remainingPercent == 15)
+}
+
+@Test func parsesClaudeDesktopUsageHistory() throws {
+    let json = #"""
+    {"version":2,"samples":[
+      {"t":1785620000000,"org":"org-1","u":{"fh":10,"sd":4}},
+      {"t":1785620300000,"org":"org-1","u":{"fh":14,"sd":5}}
+    ]}
+    """#
+
+    let decoded = try ClaudeUsageCache.decode(Data(json.utf8))
+    let snapshot = try #require(decoded)
+    #expect(snapshot.limits.fiveHour?.remainingPercent == 86)
+    #expect(snapshot.limits.weekly?.remainingPercent == 95)
+    #expect(snapshot.organizationID == "org-1")
+    #expect(snapshot.lastUsageChangeAt == Date(timeIntervalSince1970: 1_785_620_300))
+}
+
 @Test func parsesChatGPTAccountWithoutCredentials() throws {
     let json = #"""
     {"id":8,"result":{"account":{"type":"chatgpt","email":"user@example.com","planType":"plus"},"requiresOpenaiAuth":true}}

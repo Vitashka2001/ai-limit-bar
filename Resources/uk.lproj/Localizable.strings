@@ -12,6 +12,13 @@
 "window.limit" = "Ліміт";
 "window.short.five" = "5г";
 "window.short.week" = "7д";
+"window.weekAllModels" = "7 днів · усі моделі";
+"window.weekOpus" = "7 днів · Opus";
+"window.weekOAuthApps" = "7 днів · підключені застосунки";
+"window.weekCowork" = "7 днів · Cowork";
+"window.weekModel" = "7 днів · ліміт моделі";
+"window.promotional" = "Промоліміт";
+"window.weekSonnet" = "7 днів · Sonnet";
 "window.remainingTitle" = "%@ · залишилося %d%%";
 "window.resetUnavailable" = "Час скидання недоступний";
 "window.resetAt" = "Скидання %@";
@@ -21,6 +28,9 @@
 "detail.monitoringStopped" = "%@: моніторинг зупинено";
 
 "limits.noData" = "Немає даних про ліміти";
+"limits.noFreshData" = "Немає свіжих даних";
+"limits.noFreshData.subtitle" = "Очікуємо на Codex або Claude";
+"limits.providerTooltip" = "%@ · %@ · залишилося %d%%";
 "limits.noWindow" = "Codex не повернув доступне вікно";
 "limits.tooltip" = "Ліміти Codex: %@";
 "status.connecting.tooltip" = "Ліміти Codex: підключення";
@@ -32,6 +42,13 @@
 "gauge.unavailable.title" = "Codex недоступний";
 "gauge.monitoringStopped.title" = "Моніторинг зупинено";
 "gauge.monitoringStopped.subtitle" = "Фонове опитування вимкнено";
+
+"dashboard.monitoringStopped" = "Моніторинг призупинено";
+"claude.updated" = "Локальні дані оновлено %@";
+"claude.stale" = "Кеш від %@ · відкрийте Claude Desktop для оновлення";
+"claude.notInstalled" = "Claude Desktop не встановлено";
+"claude.noData" = "Відкрийте Claude Desktop, щоб завантажити локальні дані";
+"claude.failed" = "Не вдалося прочитати локальні дані Claude";
 
 "account.connecting" = "Обліковий запис: підключення";
 "account.connected" = "Обліковий запис: підключено";

@@ -3,10 +3,10 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-APP_NAME="Codex Limit Bar"
+APP_NAME="AI Limit Bar"
 APP="$ROOT/dist/$APP_NAME.app"
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT/Resources/CodexLimitBar-Info.plist")
-ARTIFACT_NAME="Codex-Limit-Bar-$VERSION"
+ARTIFACT_NAME="AI-Limit-Bar-$VERSION"
 ZIP="$ROOT/dist/$ARTIFACT_NAME.zip"
 DMG="$ROOT/dist/$ARTIFACT_NAME.dmg"
 STAGING="$ROOT/.build/release-dmg"

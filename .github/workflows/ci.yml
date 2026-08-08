@@ -24,5 +24,5 @@ jobs:
       - name: Upload app
         uses: actions/upload-artifact@v4
         with:
-          name: Codex-Limit-Bar
-          path: dist/Codex Limit Bar.app
+          name: AI-Limit-Bar
+          path: dist/AI Limit Bar.app

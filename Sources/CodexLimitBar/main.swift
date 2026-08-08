@@ -1,5 +1,7 @@
 import AppKit
 
+PreferencesMigration.run()
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?

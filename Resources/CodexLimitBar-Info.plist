@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Codex Limit Bar</string>
+	<string>AI Limit Bar</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleLocalizations</key>
@@ -15,19 +15,19 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleExecutable</key>
-	<string>CodexLimitBar</string>
+	<string>AILimitBar</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.vitashka2001.CodexLimitBar</string>
+	<string>com.vitashka2001.AILimitBar</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Codex Limit Bar</string>
+    <string>AI Limit Bar</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>2.0.0</string>
 	<key>CFBundleVersion</key>
-	<string>3</string>
+	<string>4</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Vitashka2001</string>
 	<key>LSMinimumSystemVersion</key>

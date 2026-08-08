@@ -12,6 +12,13 @@
 "window.limit" = "Лимит";
 "window.short.five" = "5ч";
 "window.short.week" = "7д";
+"window.weekAllModels" = "7 дней · все модели";
+"window.weekOpus" = "7 дней · Opus";
+"window.weekOAuthApps" = "7 дней · подключённые приложения";
+"window.weekCowork" = "7 дней · Cowork";
+"window.weekModel" = "7 дней · лимит модели";
+"window.promotional" = "Промолимит";
+"window.weekSonnet" = "7 дней · Sonnet";
 "window.remainingTitle" = "%@ · осталось %d%%";
 "window.resetUnavailable" = "Время сброса недоступно";
 "window.resetAt" = "Сброс %@";
@@ -21,6 +28,9 @@
 "detail.monitoringStopped" = "%@: мониторинг остановлен";
 
 "limits.noData" = "Нет данных о лимитах";
+"limits.noFreshData" = "Нет свежих данных";
+"limits.noFreshData.subtitle" = "Ожидаем Codex или Claude";
+"limits.providerTooltip" = "%@ · %@ · осталось %d%%";
 "limits.noWindow" = "Codex не вернул доступное окно";
 "limits.tooltip" = "Лимиты Codex: %@";
 "status.connecting.tooltip" = "Лимиты Codex: подключение";
@@ -32,6 +42,13 @@
 "gauge.unavailable.title" = "Codex недоступен";
 "gauge.monitoringStopped.title" = "Мониторинг остановлен";
 "gauge.monitoringStopped.subtitle" = "Фоновый опрос выключен";
+
+"dashboard.monitoringStopped" = "Мониторинг приостановлен";
+"claude.updated" = "Локальные данные обновлены %@";
+"claude.stale" = "Кэш от %@ · откройте Claude Desktop для обновления";
+"claude.notInstalled" = "Claude Desktop не установлен";
+"claude.noData" = "Откройте Claude Desktop, чтобы загрузить локальные данные";
+"claude.failed" = "Не удалось прочитать локальные данные Claude";
 
 "account.connecting" = "Аккаунт: подключение";
 "account.connected" = "Аккаунт: подключен";

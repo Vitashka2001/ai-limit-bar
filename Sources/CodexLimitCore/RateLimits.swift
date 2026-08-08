@@ -18,11 +18,18 @@ public enum RateLimitIndicatorLevel: Equatable, Sendable {
 }
 
 public struct RateLimitWindow: Equatable, Sendable {
+    public let identifier: String?
     public let usedPercent: Double
     public let windowDurationMinutes: Int
     public let resetsAt: Date?
 
-    public init(usedPercent: Double, windowDurationMinutes: Int, resetsAt: Date?) {
+    public init(
+        identifier: String? = nil,
+        usedPercent: Double,
+        windowDurationMinutes: Int,
+        resetsAt: Date?
+    ) {
+        self.identifier = identifier
         self.usedPercent = usedPercent
         self.windowDurationMinutes = windowDurationMinutes
         self.resetsAt = resetsAt
@@ -54,6 +61,15 @@ public struct RateLimitSnapshot: Equatable, Sendable {
 
     public var displayWindow: RateLimitWindow? {
         windows.min { $0.windowDurationMinutes < $1.windowDurationMinutes }
+    }
+
+    public var mostConstrainedWindow: RateLimitWindow? {
+        windows.min {
+            if $0.remainingPercent == $1.remainingPercent {
+                return $0.windowDurationMinutes < $1.windowDurationMinutes
+            }
+            return $0.remainingPercent < $1.remainingPercent
+        }
     }
 
     public static func decodeAppServerMessage(_ data: Data) throws -> RateLimitSnapshot? {

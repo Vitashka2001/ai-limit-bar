@@ -21,7 +21,7 @@ final class CodexAppServerClient: @unchecked Sendable {
         case cancelLogin
     }
 
-    private let ioQueue = DispatchQueue(label: "com.vitashka2001.CodexLimitBar.app-server")
+    private let ioQueue = DispatchQueue(label: "com.vitashka2001.AILimitBar.app-server")
     private var process: Process?
     private var inputPipe: Pipe?
     private var outputPipe: Pipe?
@@ -133,11 +133,11 @@ final class CodexAppServerClient: @unchecked Sendable {
                 "method": "initialize",
                 "params": [
                     "clientInfo": [
-                        "name": "codex-limit-bar",
-                        "title": "Codex Limit Bar",
+                            "name": "ai-limit-bar",
+                            "title": "AI Limit Bar",
                         "version": Bundle.main.object(
                             forInfoDictionaryKey: "CFBundleShortVersionString"
-                        ) as? String ?? "1.1.1",
+                            ) as? String ?? "2.0.0",
                     ],
                 ],
             ])
@@ -307,7 +307,7 @@ final class CodexAppServerClient: @unchecked Sendable {
 
     private func trace(_ message: String) {
         guard tracingEnabled,
-              let data = "[CodexLimitBar] \(message)\n".data(using: .utf8) else {
+              let data = "[AILimitBar] \(message)\n".data(using: .utf8) else {
             return
         }
         try? FileHandle.standardError.write(contentsOf: data)

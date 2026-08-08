@@ -12,6 +12,13 @@
 "window.limit" = "Limit";
 "window.short.five" = "5h";
 "window.short.week" = "7d";
+"window.weekAllModels" = "7-day · all models";
+"window.weekOpus" = "7-day · Opus";
+"window.weekOAuthApps" = "7-day · connected apps";
+"window.weekCowork" = "7-day · Cowork";
+"window.weekModel" = "7-day · model limit";
+"window.promotional" = "Promotional limit";
+"window.weekSonnet" = "7-day · Sonnet";
 "window.remainingTitle" = "%@ · %d%% remaining";
 "window.resetUnavailable" = "Reset time unavailable";
 "window.resetAt" = "Resets %@";
@@ -21,6 +28,9 @@
 "detail.monitoringStopped" = "%@: monitoring stopped";
 
 "limits.noData" = "No limit data";
+"limits.noFreshData" = "No fresh limit data";
+"limits.noFreshData.subtitle" = "Waiting for Codex or Claude";
+"limits.providerTooltip" = "%@ · %@ · %d%% remaining";
 "limits.noWindow" = "Codex did not return an available window";
 "limits.tooltip" = "Codex limits: %@";
 "status.connecting.tooltip" = "Codex limits: connecting";
@@ -32,6 +42,13 @@
 "gauge.unavailable.title" = "Codex unavailable";
 "gauge.monitoringStopped.title" = "Monitoring stopped";
 "gauge.monitoringStopped.subtitle" = "Background polling is off";
+
+"dashboard.monitoringStopped" = "Monitoring is paused";
+"claude.updated" = "Local data updated %@";
+"claude.stale" = "Cached %@ · open Claude Desktop to refresh";
+"claude.notInstalled" = "Claude Desktop is not installed";
+"claude.noData" = "Open Claude Desktop to load local usage data";
+"claude.failed" = "Could not read Claude's local usage data";
 
 "account.connecting" = "Account: connecting";
 "account.connected" = "Account: connected";

@@ -3,10 +3,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "CodexLimitBar",
+    name: "AILimitBar",
     platforms: [.macOS(.v13)],
     products: [
-        .executable(name: "codex-limit-bar", targets: ["CodexLimitBar"]),
+        .executable(name: "ai-limit-bar", targets: ["CodexLimitBar"]),
     ],
     targets: [
         .target(name: "CodexLimitCore"),

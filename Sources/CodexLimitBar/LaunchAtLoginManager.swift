@@ -1,11 +1,25 @@
 import Foundation
 
 enum LaunchAtLoginManager {
-    private static let label = "com.vitashka2001.CodexLimitBar"
-    private static let legacyLabel = "com.local.CodexLimitBar"
+    private static let label = "com.vitashka2001.AILimitBar"
+    private static let legacyLabels = [
+        "com.vitashka2001.CodexLimitBar",
+        "com.local.CodexLimitBar",
+    ]
 
     static var isEnabled: Bool {
         agentURLs.contains { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    static func migrateIfNeeded() {
+        let fileManager = FileManager.default
+        let hasCurrentAgent = fileManager.fileExists(atPath: agentURL.path)
+        let hasLegacyAgent = legacyLabels.contains {
+            fileManager.fileExists(atPath: agentURL(label: $0).path)
+        }
+        if !hasCurrentAgent, hasLegacyAgent {
+            try? setEnabled(true)
+        }
     }
 
     static func setEnabled(_ enabled: Bool) throws {
@@ -19,7 +33,7 @@ enum LaunchAtLoginManager {
                 at: agentURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try removeLegacyAgent(using: fileManager)
+            try removeLegacyAgents(using: fileManager)
             let propertyList: [String: Any] = [
                 "Label": label,
                 "ProgramArguments": [executableURL.path],
@@ -44,7 +58,7 @@ enum LaunchAtLoginManager {
     }
 
     private static var agentURLs: [URL] {
-        [agentURL(label: label), agentURL(label: legacyLabel)]
+        [agentURL(label: label)] + legacyLabels.map(agentURL)
     }
 
     private static func agentURL(label: String) -> URL {
@@ -53,10 +67,12 @@ enum LaunchAtLoginManager {
             .appendingPathComponent("\(label).plist")
     }
 
-    private static func removeLegacyAgent(using fileManager: FileManager) throws {
-        let legacyURL = agentURL(label: legacyLabel)
-        if fileManager.fileExists(atPath: legacyURL.path) {
-            try fileManager.removeItem(at: legacyURL)
+    private static func removeLegacyAgents(using fileManager: FileManager) throws {
+        for legacyLabel in legacyLabels {
+            let legacyURL = agentURL(label: legacyLabel)
+            if fileManager.fileExists(atPath: legacyURL.path) {
+                try fileManager.removeItem(at: legacyURL)
+            }
         }
     }
 }
