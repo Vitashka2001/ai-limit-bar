@@ -51,8 +51,6 @@
 "claude.notInstalled" = "Claude Desktop не установлен";
 "claude.noData" = "Откройте Claude Desktop, чтобы загрузить локальные данные";
 "claude.failed" = "Не удалось прочитать локальные данные Claude";
-"claude.accountPlanUnavailable" = "Аккаунт: организация …%@ · тип тарифа недоступен";
-"claude.accountUnknownPlanUnavailable" = "Аккаунт: Claude · тип тарифа недоступен";
 
 "account.connecting" = "Аккаунт: подключение";
 "account.connected" = "Аккаунт: подключен";

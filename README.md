@@ -29,13 +29,15 @@ Codex data comes from the locally installed `codex app-server`. Claude data come
 
 Claude Desktop must run to keep its local usage cache fresh. The cache does not contain reset timestamps, so AI Limit Bar shows its update time instead. Claude data older than 15 minutes remains visible as cached data but is excluded from automatic menu-bar selection.
 
+Claude Code usage in a supported IDE can count toward the same subscription limits, but AI Limit Bar currently reads the Claude Desktop cache. Open Claude Desktop whenever the displayed Claude data needs to refresh. Third-party IDE extensions using an API provider may have separate billing and limits.
+
 ## Requirements And Installation
 
 - macOS 13 Ventura or newer;
 - Codex or the official Codex editor extension for Codex limits;
 - Claude Desktop for Claude limits.
 
-Download `AI-Limit-Bar-2.1.1.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
+Download `AI-Limit-Bar-2.1.2.dmg` from the [latest release](https://github.com/Vitashka2001/ai-limit-bar/releases/latest), drag **AI Limit Bar** into `Applications`, and launch it.
 
 The public build is locally signed but not notarized. If macOS blocks the first launch, right-click the app, choose **Open**, and confirm once.
 

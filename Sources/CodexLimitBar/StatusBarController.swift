@@ -241,17 +241,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         switch claudeResult {
         case .available(let snapshot):
             let key = snapshot.isFresh() ? "claude.updated" : "claude.stale"
-            let accountStatus: String
-            if let organizationID = snapshot.organizationID, !organizationID.isEmpty {
-                let shortID = String(organizationID.suffix(6)).uppercased()
-                accountStatus = L10n.format("claude.accountPlanUnavailable", shortID)
-            } else {
-                accountStatus = L10n.string("claude.accountUnknownPlanUnavailable")
-            }
             return ProviderDashboardState(
                 provider: .claude,
-                status: accountStatus,
-                secondaryStatus: L10n.format(key, Self.dateFormatter.string(from: snapshot.limits.fetchedAt)),
+                status: L10n.format(key, Self.dateFormatter.string(from: snapshot.limits.fetchedAt)),
                 windows: snapshot.limits.windows,
                 isStale: !snapshot.isFresh()
             )
@@ -496,11 +488,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 private struct ProviderDashboardState {
     let provider: AIProvider
     let status: String
-    var secondaryStatus: String? = nil
     let windows: [RateLimitWindow]
     var isStale = false
-
-    var headerHeight: CGFloat { secondaryStatus == nil ? 50 : 64 }
 }
 
 private final class LimitsDashboardView: NSView {
@@ -511,7 +500,7 @@ private final class LimitsDashboardView: NSView {
 
     var desiredHeight: CGFloat {
         providers.reduce(CGFloat.zero) { result, provider in
-            result + provider.headerHeight + CGFloat(provider.windows.count) * 35
+            result + 50 + CGFloat(provider.windows.count) * 35
         }
     }
 
@@ -537,7 +526,7 @@ private final class LimitsDashboardView: NSView {
 
     private func drawProvider(_ state: ProviderDashboardState, at originY: CGFloat) -> CGFloat {
         let isActive = active?.provider == state.provider
-        let sectionHeight = state.headerHeight + CGFloat(state.windows.count) * 35
+        let sectionHeight = 50 + CGFloat(state.windows.count) * 35
         if isActive, let remaining = active?.window.remainingPercent {
             LimitPalette.color(for: remaining).withAlphaComponent(0.07).setFill()
             NSRect(x: 0, y: originY, width: bounds.width, height: sectionHeight - 1).fill()
@@ -549,11 +538,8 @@ private final class LimitsDashboardView: NSView {
         ProviderIcon.draw(state.provider, in: NSRect(x: 16, y: originY + 7, width: 20, height: 20), color: iconColor)
         drawText(state.provider.displayName, rect: NSRect(x: 45, y: originY + 5, width: 115, height: 18), font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor)
         drawText(state.status, rect: NSRect(x: 45, y: originY + 24, width: bounds.width - 61, height: 17), font: .systemFont(ofSize: 10.5), color: .secondaryLabelColor)
-        if let secondaryStatus = state.secondaryStatus {
-            drawText(secondaryStatus, rect: NSRect(x: 45, y: originY + 39, width: bounds.width - 61, height: 17), font: .systemFont(ofSize: 10.5), color: .tertiaryLabelColor)
-        }
 
-        var y = originY + state.headerHeight - 2
+        var y = originY + 48
         for window in state.windows {
             let remaining = window.remainingPercent
             let selectedWindow = isActive && window == active?.window
@@ -655,11 +641,11 @@ private enum LimitStatusImage {
 @MainActor
 private enum ProviderIcon {
     static func menuImage(for provider: AIProvider) -> NSImage? {
-        guard let image = sourceImage(for: provider) else {
+        guard sourceImage(for: provider) != nil else {
             return NSImage(systemSymbolName: provider.fallbackSymbolName, accessibilityDescription: provider.displayName)
         }
         let result = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { rect in
-            draw(image, in: rect, color: .labelColor)
+            draw(provider, in: rect, color: .labelColor)
             return true
         }
         result.isTemplate = false
@@ -668,7 +654,11 @@ private enum ProviderIcon {
 
     static func draw(_ provider: AIProvider, in rect: NSRect, color: NSColor) {
         if let image = sourceImage(for: provider) {
-            draw(image, in: rect, color: color)
+            if provider == .codex {
+                image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: color.alphaComponent)
+            } else {
+                draw(image, in: rect, color: color)
+            }
             return
         }
         let configuration = NSImage.SymbolConfiguration(pointSize: rect.height, weight: .medium)
@@ -692,7 +682,7 @@ private enum ProviderIcon {
             subdirectory: "ProviderIcons"
         ) else { return nil }
         let image = NSImage(contentsOf: url)
-        image?.isTemplate = true
+        image?.isTemplate = provider != .codex
         return image
     }
 

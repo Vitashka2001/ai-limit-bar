@@ -51,8 +51,6 @@
 "claude.notInstalled" = "Claude Desktop is not installed";
 "claude.noData" = "Open Claude Desktop to load local usage data";
 "claude.failed" = "Could not read Claude's local usage data";
-"claude.accountPlanUnavailable" = "Account: organization …%@ · plan type unavailable";
-"claude.accountUnknownPlanUnavailable" = "Account: Claude · plan type unavailable";
 
 "account.connecting" = "Account: connecting";
 "account.connected" = "Account: connected";

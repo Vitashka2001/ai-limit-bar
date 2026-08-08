@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.2 - 2026-08-08
+
+- Rebuilt the Codex provider mark from the supplied SVG and WebP artwork.
+- Removed unavailable Claude account and plan labels from the dashboard.
+- Restored the compact single-line Claude freshness header.
+
 ## 2.1.1 - 2026-08-08
 
 - Corrected the Codex mark using the official `@lobehub/icons` geometry.
