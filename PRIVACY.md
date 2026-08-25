@@ -12,11 +12,12 @@ The app:
 - does not request keyboard input, screen recording, microphone, camera, or broad file access;
 - receives Codex account and limit information from the locally installed `codex app-server`;
 - receives Claude Code rate-limit percentages and reset timestamps through its official local `statusLine` interface;
-- can passively read Claude Desktop's local `plan-usage-history.json` usage cache for percentages, timestamps, and its non-secret organization identifier.
+- can passively read Claude Desktop's local `plan-usage-history.json` usage cache for percentages, timestamps, and its non-secret organization identifier;
+- can passively read the `cachedUsageUtilization` entry Claude Code itself keeps in `~/.claude.json` for percentages, reset times, and its non-secret account identifier. No other part of that file is read.
 
-When **Automatic Claude updates** is enabled, AI Limit Bar adds a command to `~/.claude/settings.json`. Claude Code can send its normal status-line JSON to that command after responses. AI Limit Bar stores only the two rate-limit percentages, reset timestamps, capture time, and last-change time. It does not store session identifiers, workspace paths, prompts, responses, or model context.
+When **Automatic Claude updates** is enabled, AI Limit Bar adds a command to `~/.claude/settings.json` together with Claude Code's official `refreshInterval` option, so the status line also re-runs every 30 seconds while a session is open. Claude Code sends its normal status-line JSON to that command. AI Limit Bar stores only the two rate-limit percentages, reset timestamps, capture time, and last-change time. It does not store session identifiers, workspace paths, prompts, responses, or model context.
 
-Claude Desktop's cache does not contain email, plan type, or reset times. Cached data older than five minutes remains visible but is not used for automatic status-bar selection. If fresh Claude Code data is unavailable, automatic updates may launch Claude Desktop without activation, hide it, and restore the previously active application if necessary. AI Limit Bar tracks the exact process it started and terminates it after fresh data arrives or after a 30-second timeout. It does not launch or terminate another instance when Desktop is already running, and skips this fallback when Desktop is not installed.
+Claude Desktop's cache does not contain email, plan type, or reset times, so AI Limit Bar fills those in from the other two local sources. The three sources are merged window by window and the newest value wins. Cached data stays visible and is used for status-bar selection regardless of age, because a quota does not move while Claude is idle; a window whose reset time has passed is shown as empty again. AI Limit Bar never launches, hides, or terminates Claude Desktop.
 
 When the user switches Codex accounts, Codex opens its official browser authentication flow. The new account becomes active for other local Codex tools on the same Mac.
 

@@ -54,7 +54,8 @@
 "claude.desktopUpdated" = "Desktop · обновлено %@";
 "claude.desktopStale" = "Desktop · %@ · данные устарели";
 "claude.desktopUnavailable" = "Desktop не установлен · кеш от %@";
-"claude.refreshingViaDesktop" = "Обновление через Desktop…";
+"claude.configUpdated" = "Кеш Claude Code · обновлено %@";
+"claude.configStale" = "Кеш Claude Code · %@";
 "claude.waitingForCode" = "Ожидание первого ответа Claude Code";
 "claude.noLiveSource" = "Источник автообновления Claude не найден";
 "claude.noData" = "Ожидание данных об использовании Claude";

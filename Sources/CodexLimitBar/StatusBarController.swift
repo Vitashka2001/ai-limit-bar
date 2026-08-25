@@ -14,7 +14,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private static let minimumContentWidth: CGFloat = 420
     private static let recentActivityInterval: TimeInterval = 15 * 60
     private static let dualActivityInterval: TimeInterval = 30 * 60
-    private static let claudeLaunchRetryInterval: TimeInterval = 10 * 60
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: 90)
     private let client = CodexAppServerClient()
@@ -39,11 +38,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var claudeAutomaticRefreshEnabled = true
     private var codexProviderVisible = true
     private var claudeProviderVisible = true
-    private var claudeLastLaunchAttemptAt: Date?
-    private var claudeDesktopRefreshPID: pid_t?
-    private var claudeDesktopLaunchID: UUID?
-    private var claudePreviousApplicationPID: pid_t?
-    private var claudeRefreshChecksRemaining = 0
     private var clientConnected = false
     private var loginInProgress = false
     private var codexUsageSignature: [String: Double] = [:]
@@ -78,6 +72,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             object: nil
         )
         LaunchAtLoginManager.migrateIfNeeded()
+        if let executableURL = Bundle.main.executableURL {
+            ClaudeCodeIntegration.repairIfNeeded(executableURL: executableURL)
+        }
         let storedClaudeRefresh = UserDefaults.standard.object(
             forKey: Self.claudeAutomaticRefreshDefaultsKey
         ) as? Bool
@@ -94,7 +91,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         refreshTimer = nil
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         DistributedNotificationCenter.default().removeObserver(self)
-        stopOwnedClaudeDesktop()
         client.stop()
     }
 
@@ -277,11 +273,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         UserDefaults.standard.set(date, forKey: Self.codexLastUsageChangeDefaultsKey)
     }
 
-    private func refreshClaude(forceDesktopRefresh: Bool = false) {
+    private func refreshClaude() {
         claudeResult = ClaudeUsageReader.read()
         render()
         updateActionAvailability()
-        refreshClaudeViaDesktopIfNeeded(force: forceDesktopRefresh)
     }
 
     private func render() {
@@ -332,36 +327,26 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     private func claudeDashboardState() -> ProviderDashboardState {
-        if claudeRefreshChecksRemaining > 0 {
-            let windows: [RateLimitWindow]
-            if case .available(let snapshot) = claudeResult {
-                windows = snapshot.limits.windows
-            } else {
-                windows = []
-            }
-            return ProviderDashboardState(
-                provider: .claude,
-                status: L10n.string("claude.refreshingViaDesktop"),
-                windows: windows,
-                isStale: true
-            )
-        }
-
         switch claudeResult {
         case .available(let snapshot):
             let key: String
-            switch (snapshot.source, snapshot.isFresh()) {
+            switch (snapshot.source, snapshot.isRecent()) {
             case (.claudeCode, true): key = "claude.codeUpdated"
             case (.claudeCode, false): key = "claude.codeStale"
             case (.desktop, true): key = "claude.desktopUpdated"
             case (.desktop, false):
                 key = claudeDesktopIsInstalled ? "claude.desktopStale" : "claude.desktopUnavailable"
+            case (.config, true): key = "claude.configUpdated"
+            case (.config, false): key = "claude.configStale"
             }
             return ProviderDashboardState(
                 provider: .claude,
                 status: L10n.format(key, Self.dateFormatter.string(from: snapshot.limits.fetchedAt)),
                 windows: snapshot.limits.windows,
-                isStale: !snapshot.isFresh()
+                // Age alone no longer dims the numbers: quotas do not move while
+                // Claude is idle, and windows that carry a reset time correct
+                // themselves. Only an unverifiable window is genuinely doubtful.
+                isStale: snapshot.hasUnverifiableWindow()
             )
         case .notInstalled:
             let key = ClaudeCodeIntegration.isAvailable && ClaudeCodeIntegration.isInstalled
@@ -383,9 +368,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         if codexProviderVisible, clientConnected, let window = codexSnapshot?.mostConstrainedWindow {
             candidates.append((DisplayedLimit(provider: .codex, window: window), codexLastUsageChangeAt))
         }
+        // Claude's local sources publish every few minutes at best, so requiring a
+        // recent sample here used to blank the indicator most of the time. The last
+        // known value stays correct until the quota is actually used again.
         if claudeProviderVisible,
            case .available(let claude) = claudeResult,
-           claude.isFresh(at: now),
            let window = claude.limits.mostConstrainedWindow {
             candidates.append((DisplayedLimit(provider: .claude, window: window), claude.lastUsageChangeAt))
         }
@@ -471,7 +458,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         } else {
             refreshTimer?.invalidate()
             refreshTimer = nil
-            stopOwnedClaudeDesktop()
             client.stop()
             clientConnected = false
             loginInProgress = false
@@ -501,7 +487,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     @objc private func refreshNow() {
         guard monitoringEnabled else { return }
         if codexProviderVisible { client.refresh() }
-        if claudeProviderVisible { refreshClaude(forceDesktopRefresh: true) }
+        if claudeProviderVisible { refreshClaude() }
     }
 
     @objc private func toggleMonitoring() {
@@ -540,162 +526,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         claudeAutomaticRefreshEnabled = enabling
         UserDefaults.standard.set(enabling, forKey: Self.claudeAutomaticRefreshDefaultsKey)
-        if !enabling { stopOwnedClaudeDesktop() }
         refreshClaudeAutomaticRefreshState()
         refreshClaude()
     }
 
     private func refreshClaudeAutomaticRefreshState() {
         claudeAutomaticRefreshItem.state = claudeAutomaticRefreshEnabled ? .on : .off
-    }
-
-    private func refreshClaudeViaDesktopIfNeeded(now: Date = Date(), force: Bool = false) {
-        guard monitoringEnabled,
-              claudeProviderVisible,
-              claudeAutomaticRefreshEnabled,
-              let applicationURL = ClaudeUsageReader.desktopApplicationURL() else { return }
-        guard claudeRefreshChecksRemaining == 0 else { return }
-
-        let needsRefresh: Bool
-        switch claudeResult {
-        case .available(let snapshot): needsRefresh = !snapshot.isFresh(at: now)
-        case .noData, .failed: needsRefresh = true
-        case .notInstalled: needsRefresh = false
-        }
-        guard needsRefresh else { return }
-        guard NSRunningApplication.runningApplications(
-            withBundleIdentifier: "com.anthropic.claudefordesktop"
-        ).isEmpty else { return }
-        if !force, let lastAttempt = claudeLastLaunchAttemptAt,
-           now.timeIntervalSince(lastAttempt) < Self.claudeLaunchRetryInterval {
-            return
-        }
-
-        claudeLastLaunchAttemptAt = now
-        claudePreviousApplicationPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        claudeDesktopRefreshPID = nil
-        claudeRefreshChecksRemaining = 6
-        let launchID = UUID()
-        claudeDesktopLaunchID = launchID
-        render()
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-gj", applicationURL.path]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-            scheduleClaudeDesktopConcealmentCheck(launchID: launchID)
-            scheduleClaudeDesktopRefreshCheck()
-        } catch {
-            logger.error("Could not launch Claude Desktop fallback: \(error.localizedDescription, privacy: .public)")
-            resetClaudeDesktopRefreshState()
-            render()
-        }
-    }
-
-    private func scheduleClaudeDesktopConcealmentCheck(launchID: UUID, attemptsRemaining: Int = 80) {
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] _ in
-            Task { @MainActor in
-                guard let self,
-                      self.claudeDesktopLaunchID == launchID,
-                      self.claudeRefreshChecksRemaining > 0 else { return }
-                if let application = NSRunningApplication.runningApplications(
-                    withBundleIdentifier: "com.anthropic.claudefordesktop"
-                ).first {
-                    self.concealOwnedClaudeDesktop(application)
-                }
-                if attemptsRemaining > 1 {
-                    self.scheduleClaudeDesktopConcealmentCheck(
-                        launchID: launchID,
-                        attemptsRemaining: attemptsRemaining - 1
-                    )
-                }
-            }
-        }
-    }
-
-    private func scheduleClaudeDesktopRefreshCheck() {
-        Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
-            Task { @MainActor in self?.completeClaudeDesktopRefresh() }
-        }
-    }
-
-    private func completeClaudeDesktopRefresh() {
-        guard claudeRefreshChecksRemaining > 0 else { return }
-        let applications = NSRunningApplication.runningApplications(
-            withBundleIdentifier: "com.anthropic.claudefordesktop"
-        )
-        if claudeDesktopRefreshPID == nil {
-            claudeDesktopRefreshPID = applications.first?.processIdentifier
-        }
-        if let application = applications.first(where: {
-            $0.processIdentifier == claudeDesktopRefreshPID
-        }) {
-            concealOwnedClaudeDesktop(application)
-        }
-
-        claudeResult = ClaudeUsageReader.read()
-        let receivedFreshData: Bool
-        if case .available(let snapshot) = claudeResult {
-            receivedFreshData = snapshot.isFresh()
-        } else {
-            receivedFreshData = false
-        }
-
-        claudeRefreshChecksRemaining -= 1
-        if !receivedFreshData, claudeRefreshChecksRemaining > 0 {
-            render()
-            updateActionAvailability()
-            scheduleClaudeDesktopRefreshCheck()
-            return
-        }
-        stopOwnedClaudeDesktop()
-        render()
-        updateActionAvailability()
-    }
-
-    private func stopOwnedClaudeDesktop() {
-        if claudeDesktopRefreshPID == nil, claudeRefreshChecksRemaining > 0 {
-            claudeDesktopRefreshPID = NSRunningApplication.runningApplications(
-                withBundleIdentifier: "com.anthropic.claudefordesktop"
-            ).first?.processIdentifier
-        }
-        let ownedPID = claudeDesktopRefreshPID
-        resetClaudeDesktopRefreshState()
-        guard let ownedPID,
-              let application = NSRunningApplication(processIdentifier: ownedPID) else { return }
-
-        application.terminate()
-        Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { _ in
-            guard let running = NSRunningApplication(processIdentifier: ownedPID),
-                  !running.isTerminated else { return }
-            running.forceTerminate()
-        }
-    }
-
-    private func resetClaudeDesktopRefreshState() {
-        claudeDesktopLaunchID = nil
-        claudeDesktopRefreshPID = nil
-        claudePreviousApplicationPID = nil
-        claudeRefreshChecksRemaining = 0
-    }
-
-    private func concealOwnedClaudeDesktop(_ application: NSRunningApplication) {
-        guard claudeRefreshChecksRemaining > 0,
-              application.bundleIdentifier == "com.anthropic.claudefordesktop",
-              claudeDesktopRefreshPID == nil || claudeDesktopRefreshPID == application.processIdentifier else {
-            return
-        }
-        claudeDesktopRefreshPID = application.processIdentifier
-        application.hide()
-
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == application.processIdentifier,
-              let previousPID = claudePreviousApplicationPID,
-              let previousApplication = NSRunningApplication(processIdentifier: previousPID),
-              !previousApplication.isTerminated else { return }
-        previousApplication.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
     }
 
     @objc private func claudeCodeUsageUpdated(_ notification: Notification) {
@@ -787,8 +623,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             UserDefaults.standard.set(claudeProviderVisible, forKey: Self.claudeVisibleDefaultsKey)
             if claudeProviderVisible, monitoringEnabled {
                 refreshClaude()
-            } else {
-                stopOwnedClaudeDesktop()
             }
         }
         render()
@@ -875,12 +709,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func activeApplicationChanged(_ notification: Notification) {
         let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-        if let application,
-           claudeRefreshChecksRemaining > 0,
-           application.bundleIdentifier == "com.anthropic.claudefordesktop" {
-            concealOwnedClaudeDesktop(application)
-            return
-        }
         frontmostProvider = provider(for: application)
         render()
     }

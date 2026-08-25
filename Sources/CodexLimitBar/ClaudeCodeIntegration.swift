@@ -4,6 +4,10 @@ import CodexLimitCore
 enum ClaudeCodeIntegration {
     static let usageUpdatedNotification = Notification.Name("com.vitashka2001.AILimitBar.claudeCodeUsageUpdated")
     static let commandArgument = "--capture-claude-usage"
+    /// Claude Code re-runs the status line command on this cadence on top of its
+    /// event-driven updates, so limits keep arriving during a long response instead
+    /// of only after one finishes.
+    static let refreshIntervalSeconds = 30
 
     enum InstallResult {
         case installed
@@ -55,8 +59,33 @@ enum ClaudeCodeIntegration {
         root["statusLine"] = [
             "type": "command",
             "command": "\(shellQuote(executableURL.path)) \(commandArgument)",
+            "refreshInterval": refreshIntervalSeconds,
         ]
         return writeSettings(root) ? .installed : .failed
+    }
+
+    /// Keeps an existing bridge pointing at this bundle and on the current refresh
+    /// cadence. Without it, moving the app leaves a command that silently fails, and
+    /// installs made before `refreshInterval` existed only update after a response.
+    @discardableResult
+    static func repairIfNeeded(executableURL: URL) -> Bool {
+        guard var root = readSettings(),
+              let statusLine = root["statusLine"] as? [String: Any],
+              let command = statusLine["command"] as? String,
+              command.contains(commandArgument) else {
+            return false
+        }
+
+        let expected = "\(shellQuote(executableURL.path)) \(commandArgument)"
+        let interval = (statusLine["refreshInterval"] as? NSNumber)?.intValue
+        guard command != expected || interval != refreshIntervalSeconds else { return false }
+
+        root["statusLine"] = [
+            "type": "command",
+            "command": expected,
+            "refreshInterval": refreshIntervalSeconds,
+        ]
+        return writeSettings(root)
     }
 
     static func uninstall() -> Bool {

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.5.0 - 2026-08-25
+
+- Keeps the last known Claude limit in the menu bar instead of showing a dash: the previous five-minute freshness gate discarded valid data most of the time, because Claude Desktop only rewrites its cache about every 15 minutes.
+- Empties a limit window locally once its reset time passes, so an idle Claude no longer needs a fresh sample to stay correct.
+- Merges the local Claude sources window by window instead of picking the newest file wholesale, so Desktop percentages no longer discard the reset times the other sources provide.
+- Reads the `cachedUsageUtilization` entry Claude Code keeps in `~/.claude.json` as a third local source, which survives both a closed session and a closed Desktop.
+- Installs the status-line bridge with Claude Code's `refreshInterval`, so limits also arrive every 30 seconds during a session rather than only after a response.
+- Repairs an existing bridge that still points at a moved application bundle or predates `refreshInterval`.
+- Removes the Claude Desktop launch, hide, and terminate fallback along with the focus restoration it needed.
+- Dims Claude numbers only when a window without a reset time is older than the window itself, rather than whenever a sample is a few minutes old.
+
 ## 2.4.8 - 2026-08-09
 
 - Gives percentages the same vertical spacing above progress bars in compact and reset-detail rows.

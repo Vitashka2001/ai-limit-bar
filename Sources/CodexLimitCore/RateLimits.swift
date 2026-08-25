@@ -38,6 +38,30 @@ public struct RateLimitWindow: Equatable, Sendable {
     public var remainingPercent: Double {
         min(100, max(0, 100 - usedPercent))
     }
+
+    /// A window whose reset moment has passed is empty again, even when no source
+    /// has reported the new value yet.
+    public func hasReset(at date: Date) -> Bool {
+        guard let resetsAt else { return false }
+        return resetsAt <= date
+    }
+
+    public func rolledOver(at date: Date) -> RateLimitWindow {
+        guard hasReset(at: date) else { return self }
+        return RateLimitWindow(
+            identifier: identifier,
+            usedPercent: 0,
+            windowDurationMinutes: windowDurationMinutes,
+            resetsAt: nil
+        )
+    }
+
+    /// Without a reset timestamp a window can quietly roll over while the source is
+    /// silent, so a sample older than the window itself can no longer be trusted.
+    public func couldHaveResetUnnoticed(measuredAt: Date, now: Date) -> Bool {
+        guard resetsAt == nil else { return false }
+        return now.timeIntervalSince(measuredAt) >= TimeInterval(windowDurationMinutes) * 60
+    }
 }
 
 public struct RateLimitSnapshot: Equatable, Sendable {
@@ -61,6 +85,14 @@ public struct RateLimitSnapshot: Equatable, Sendable {
 
     public var displayWindow: RateLimitWindow? {
         windows.min { $0.windowDurationMinutes < $1.windowDurationMinutes }
+    }
+
+    public func rollingOver(at date: Date = Date()) -> RateLimitSnapshot {
+        RateLimitSnapshot(
+            planType: planType,
+            windows: windows.map { $0.rolledOver(at: date) },
+            fetchedAt: fetchedAt
+        )
     }
 
     public var mostConstrainedWindow: RateLimitWindow? {

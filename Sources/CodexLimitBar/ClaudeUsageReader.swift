@@ -1,22 +1,6 @@
 import Foundation
 import CodexLimitCore
 
-struct ClaudeUsageSnapshot: Equatable, Sendable {
-    enum Source: Equatable, Sendable {
-        case claudeCode
-        case desktop
-    }
-
-    let limits: RateLimitSnapshot
-    let organizationID: String?
-    let lastUsageChangeAt: Date?
-    let source: Source
-
-    func isFresh(at date: Date = Date()) -> Bool {
-        date.timeIntervalSince(limits.fetchedAt) <= ClaudeUsageReader.freshnessInterval
-    }
-}
-
 enum ClaudeUsageReadResult: Equatable, Sendable {
     case available(ClaudeUsageSnapshot)
     case notInstalled
@@ -24,50 +8,74 @@ enum ClaudeUsageReadResult: Equatable, Sendable {
     case failed
 }
 
+/// Gathers every local place Claude leaves its usage numbers and merges them.
+/// None of them publishes on a fixed schedule, so relying on any single one leaves
+/// long gaps; together they cover each other.
 enum ClaudeUsageReader {
-    static let freshnessInterval: TimeInterval = 5 * 60
-
-    static func read(fileManager: FileManager = .default) -> ClaudeUsageReadResult {
+    static func read(fileManager: FileManager = .default, now: Date = Date()) -> ClaudeUsageReadResult {
         var snapshots: [ClaudeUsageSnapshot] = []
         var readFailed = false
 
-        if fileManager.fileExists(atPath: ClaudeCodeIntegration.cacheURL.path) {
+        func load(_ url: URL, _ transform: (Data) throws -> ClaudeUsageSnapshot?) {
+            guard fileManager.fileExists(atPath: url.path) else { return }
             do {
-                if let cached = try ClaudeCodeUsageCache.decode(Data(contentsOf: ClaudeCodeIntegration.cacheURL)) {
-                    snapshots.append(ClaudeUsageSnapshot(
-                        limits: cached.limits,
-                        organizationID: nil,
-                        lastUsageChangeAt: cached.lastUsageChangeAt,
-                        source: .claudeCode
-                    ))
+                if let snapshot = try transform(Data(contentsOf: url)) {
+                    snapshots.append(snapshot)
                 }
             } catch {
                 readFailed = true
             }
         }
 
-        let historyURL = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Claude/plan-usage-history.json")
-        if fileManager.fileExists(atPath: historyURL.path) {
-            do {
-                if let cached = try ClaudeUsageCache.decode(Data(contentsOf: historyURL)) {
-                    snapshots.append(ClaudeUsageSnapshot(
-                        limits: cached.limits,
-                        organizationID: cached.organizationID,
-                        lastUsageChangeAt: cached.lastUsageChangeAt,
-                        source: .desktop
-                    ))
-                }
-            } catch {
-                readFailed = true
+        load(ClaudeCodeIntegration.cacheURL) { data in
+            try ClaudeCodeUsageCache.decode(data).map {
+                ClaudeUsageSnapshot(
+                    limits: $0.limits,
+                    organizationID: nil,
+                    lastUsageChangeAt: $0.lastUsageChangeAt,
+                    source: .claudeCode
+                )
             }
         }
 
-        if let latest = snapshots.max(by: { $0.limits.fetchedAt < $1.limits.fetchedAt }) {
-            return .available(latest)
+        load(desktopHistoryURL(fileManager: fileManager)) { data in
+            try ClaudeUsageCache.decode(data).map {
+                ClaudeUsageSnapshot(
+                    limits: $0.limits,
+                    organizationID: $0.organizationID,
+                    lastUsageChangeAt: $0.lastUsageChangeAt,
+                    source: .desktop
+                )
+            }
+        }
+
+        load(configURL(fileManager: fileManager)) { data in
+            try ClaudeConfigUsageCache.decode(data).map {
+                ClaudeUsageSnapshot(
+                    limits: $0.limits,
+                    organizationID: nil,
+                    lastUsageChangeAt: nil,
+                    source: .config
+                )
+            }
+        }
+
+        if let merged = ClaudeUsageSnapshot.merged(snapshots, at: now) {
+            return .available(merged)
         }
         if readFailed { return .failed }
         return desktopIsInstalled(fileManager: fileManager) ? .noData : .notInstalled
+    }
+
+    static func desktopHistoryURL(fileManager: FileManager = .default) -> URL {
+        fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Claude/plan-usage-history.json")
+    }
+
+    /// Claude Code persists the utilization it last fetched here. It is the only
+    /// local source that survives both a closed session and a closed Desktop app.
+    static func configURL(fileManager: FileManager = .default) -> URL {
+        fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
     }
 
     static func desktopIsInstalled(fileManager: FileManager = .default) -> Bool {
