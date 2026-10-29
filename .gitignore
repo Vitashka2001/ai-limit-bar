@@ -2,3 +2,7 @@
 .build/
 dist/
 .swiftpm/
+
+# Editor and assistant state that is local to one machine
+.vscode/
+.claude/settings.local.json
