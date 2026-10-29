@@ -2,6 +2,7 @@ import Foundation
 
 public struct ClaudeUsageSnapshot: Equatable, Sendable {
     public enum Source: Equatable, Sendable {
+        case api
         case claudeCode
         case desktop
         case config

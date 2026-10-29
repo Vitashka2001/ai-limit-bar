@@ -49,6 +49,11 @@
 "gauge.monitoringStopped.subtitle" = "Фонове опитування вимкнено";
 
 "dashboard.monitoringStopped" = "Моніторинг призупинено";
+"claude.liveUpdated" = "Наживо · оновлено %@";
+"claude.liveStale" = "Наживо · %@";
+"claude.liveHint.signedOut" = "%@ · увійдіть у Claude Code для живих лімітів";
+"claude.liveHint.expired" = "%@ · наживо відновиться після запуску Claude Code";
+"claude.liveHint.rateLimited" = "%@ · сервер тимчасово призупинив оновлення";
 "claude.codeUpdated" = "Claude Code · оновлено %@";
 "claude.codeStale" = "Claude Code · %@ · очікування";
 "claude.desktopUpdated" = "Desktop · оновлено %@";

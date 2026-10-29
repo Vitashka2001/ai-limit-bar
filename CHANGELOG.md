@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.0 - 2026-10-29
+
+- Polls live Claude limits from `api.anthropic.com/api/oauth/usage` about once a minute, the request behind Claude Code's `/usage`. Claude's local caches only refresh about once per prompt: during a measured five-minute agent run `~/.claude.json` did not change at all and trailed the server by 10 points, and Claude Desktop had written nothing for nine hours while open.
+- Authenticates with Claude Code's own access token, read through `/usr/bin/security` exactly as Claude Code reads it, so no keychain prompt appears. The token is never renewed here, since rotating the refresh token would sign Claude Code out; an expired token pauses live requests until Claude Code renews it.
+- Honors `Retry-After` and backs off up to 15 minutes on rate limiting, spaces requests at least 15 seconds apart when the menu is opened repeatedly, and refreshes right after waking from sleep.
+- Shows Claude in the menu bar when Claude is the service in use. Selection follows recent activity, but the freshest Claude sources carry no history, so Claude was never considered active and the indicator kept showing Codex. Activity is now tracked by watching usage grow between reads, for both services.
+- Counts only usage growth as activity, so a window emptying at its reset no longer looks like use.
+- Explains in the dashboard why live limits are paused when a fallback source is shown.
+
 ## 2.5.0 - 2026-08-25
 
 - Keeps the last known Claude limit in the menu bar instead of showing a dash: the previous five-minute freshness gate discarded valid data most of the time, because Claude Desktop only rewrites its cache about every 15 minutes.

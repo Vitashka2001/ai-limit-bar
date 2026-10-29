@@ -11,12 +11,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private static let claudeSetupPromptShownDefaultsKey = "claudeSetupPromptShown"
     private static let codexUsageSignatureDefaultsKey = "codexUsageSignature"
     private static let codexLastUsageChangeDefaultsKey = "codexLastUsageChangeAt"
+    private static let claudeUsageSignatureDefaultsKey = "claudeUsageSignature"
+    private static let claudeLastUsageChangeDefaultsKey = "claudeLastUsageChangeAt"
     private static let minimumContentWidth: CGFloat = 420
     private static let recentActivityInterval: TimeInterval = 15 * 60
     private static let dualActivityInterval: TimeInterval = 30 * 60
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: 90)
     private let client = CodexAppServerClient()
+    private let claudeClient = ClaudeUsageClient()
     private let dashboardView = LimitsDashboardView(frame: NSRect(x: 0, y: 0, width: 420, height: 235))
     private let logger = Logger(subsystem: "com.vitashka2001.AILimitBar", category: "limits")
     private let monitoringItem = NSMenuItem(title: L10n.string("menu.monitoring"), action: nil, keyEquivalent: "")
@@ -40,8 +43,16 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var claudeProviderVisible = true
     private var clientConnected = false
     private var loginInProgress = false
-    private var codexUsageSignature: [String: Double] = [:]
-    private var codexLastUsageChangeAt: Date?
+    private var codexActivity = StatusBarController.loadActivity(
+        signatureKey: StatusBarController.codexUsageSignatureDefaultsKey,
+        dateKey: StatusBarController.codexLastUsageChangeDefaultsKey
+    )
+    private var claudeActivity = StatusBarController.loadActivity(
+        signatureKey: StatusBarController.claudeUsageSignatureDefaultsKey,
+        dateKey: StatusBarController.claudeLastUsageChangeDefaultsKey
+    )
+    private var claudeLiveSnapshot: RateLimitSnapshot?
+    private var claudeLiveState: ClaudeUsageClient.State = .idle
     private var frontmostProvider: AIProvider?
 
     override init() {
@@ -59,10 +70,19 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         frontmostProvider = provider(for: NSWorkspace.shared.frontmostApplication)
         configureStatusItem()
         configureClient()
+        configureClaudeClient()
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(activeApplicationChanged),
             name: NSWorkspace.didActivateApplicationNotification,
+            object: nil
+        )
+        // Timers do not fire during sleep, so the first minute after wake would
+        // otherwise show limits from before the lid was closed.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDidWake),
+            name: NSWorkspace.didWakeNotification,
             object: nil
         )
         DistributedNotificationCenter.default().addObserver(
@@ -244,39 +264,81 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    private func apply(_ snapshot: RateLimitSnapshot) {
-        let signature = Dictionary(uniqueKeysWithValues: snapshot.windows.enumerated().map { index, window in
-            (window.identifier ?? "\(window.windowDurationMinutes)-\(index)", window.usedPercent)
-        })
-        if codexUsageSignature.isEmpty {
-            let defaults = UserDefaults.standard
-            let storedSignature = defaults.dictionary(forKey: Self.codexUsageSignatureDefaultsKey)?
-                .compactMapValues { ($0 as? NSNumber)?.doubleValue }
-            if storedSignature == signature {
-                codexLastUsageChangeAt = defaults.object(
-                    forKey: Self.codexLastUsageChangeDefaultsKey
-                ) as? Date
-            } else {
-                recordCodexActivity(signature: signature)
+    private func configureClaudeClient() {
+        claudeClient.onSnapshot = { [weak self] snapshot in
+            Task { @MainActor in
+                guard let self else { return }
+                self.claudeLiveSnapshot = snapshot
+                self.refreshClaude()
             }
-        } else if signature != codexUsageSignature {
-            recordCodexActivity(signature: signature)
         }
-        codexUsageSignature = signature
+        claudeClient.onStateChange = { [weak self] state in
+            Task { @MainActor in
+                guard let self, self.claudeLiveState != state else { return }
+                self.claudeLiveState = state
+                self.logger.notice("Live Claude limits: \(String(describing: state), privacy: .public)")
+                self.render()
+            }
+        }
+    }
+
+    private func apply(_ snapshot: RateLimitSnapshot) {
+        Self.observe(
+            snapshot.windows,
+            in: &codexActivity,
+            signatureKey: Self.codexUsageSignatureDefaultsKey,
+            dateKey: Self.codexLastUsageChangeDefaultsKey
+        )
         codexSnapshot = snapshot
         render()
     }
 
-    private func recordCodexActivity(signature: [String: Double], at date: Date = Date()) {
-        codexLastUsageChangeAt = date
-        UserDefaults.standard.set(signature, forKey: Self.codexUsageSignatureDefaultsKey)
-        UserDefaults.standard.set(date, forKey: Self.codexLastUsageChangeDefaultsKey)
-    }
-
+    /// Re-reads the local sources and merges them with the latest live result.
+    /// Cheap enough to run on every tick: three small files, no network.
     private func refreshClaude() {
-        claudeResult = ClaudeUsageReader.read()
+        claudeResult = ClaudeUsageReader.read(live: claudeLiveSnapshot)
+        if case .available(let snapshot) = claudeResult {
+            Self.observe(
+                snapshot.limits.windows,
+                in: &claudeActivity,
+                signatureKey: Self.claudeUsageSignatureDefaultsKey,
+                dateKey: Self.claudeLastUsageChangeDefaultsKey
+            )
+        }
         render()
         updateActionAvailability()
+    }
+
+    private var claudeLivePollingEnabled: Bool {
+        monitoringEnabled && claudeProviderVisible && claudeAutomaticRefreshEnabled
+    }
+
+    private func pollClaude(force: Bool = false) {
+        if claudeLivePollingEnabled { claudeClient.refresh(force: force) }
+        refreshClaude()
+    }
+
+    private static func loadActivity(signatureKey: String, dateKey: String) -> UsageActivityTracker {
+        let defaults = UserDefaults.standard
+        let signature = defaults.dictionary(forKey: signatureKey)?
+            .compactMapValues { ($0 as? NSNumber)?.doubleValue } ?? [:]
+        return UsageActivityTracker(signature: signature, lastActivityAt: defaults.object(forKey: dateKey) as? Date)
+    }
+
+    /// Persists the baseline on every change, drops included, so growth that
+    /// happens while the app is closed still registers on the next launch.
+    private static func observe(
+        _ windows: [RateLimitWindow],
+        in tracker: inout UsageActivityTracker,
+        signatureKey: String,
+        dateKey: String
+    ) {
+        let previous = tracker.signature
+        tracker.observe(windows, at: Date())
+        guard tracker.signature != previous else { return }
+        let defaults = UserDefaults.standard
+        defaults.set(tracker.signature, forKey: signatureKey)
+        defaults.set(tracker.lastActivityAt, forKey: dateKey)
     }
 
     private func render() {
@@ -331,6 +393,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         case .available(let snapshot):
             let key: String
             switch (snapshot.source, snapshot.isRecent()) {
+            case (.api, true): key = "claude.liveUpdated"
+            case (.api, false): key = "claude.liveStale"
             case (.claudeCode, true): key = "claude.codeUpdated"
             case (.claudeCode, false): key = "claude.codeStale"
             case (.desktop, true): key = "claude.desktopUpdated"
@@ -339,9 +403,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             case (.config, true): key = "claude.configUpdated"
             case (.config, false): key = "claude.configStale"
             }
+            var status = L10n.format(key, Self.dateFormatter.string(from: snapshot.limits.fetchedAt))
+            // While live requests are paused, say why — whichever source is shown, an
+            // aging timestamp should not be mistaken for a broken app.
+            if claudeLivePollingEnabled, let hint = claudeLiveHintKey {
+                status = L10n.format(hint, status)
+            }
             return ProviderDashboardState(
                 provider: .claude,
-                status: L10n.format(key, Self.dateFormatter.string(from: snapshot.limits.fetchedAt)),
+                status: status,
                 windows: snapshot.limits.windows,
                 // Age alone no longer dims the numbers: quotas do not move while
                 // Claude is idle, and windows that carry a reset time correct
@@ -363,10 +433,19 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
     }
 
+    private var claudeLiveHintKey: String? {
+        switch claudeLiveState {
+        case .signedOut: return "claude.liveHint.signedOut"
+        case .tokenExpired: return "claude.liveHint.expired"
+        case .rateLimited: return "claude.liveHint.rateLimited"
+        case .idle, .live, .failed: return nil
+        }
+    }
+
     private func selectDisplayedLimits(now: Date = Date()) -> [DisplayedLimit] {
         var candidates: [(limit: DisplayedLimit, activity: Date?)] = []
         if codexProviderVisible, clientConnected, let window = codexSnapshot?.mostConstrainedWindow {
-            candidates.append((DisplayedLimit(provider: .codex, window: window), codexLastUsageChangeAt))
+            candidates.append((DisplayedLimit(provider: .codex, window: window), codexActivity.lastActivityAt))
         }
         // Claude's local sources publish every few minutes at best, so requiring a
         // recent sample here used to blank the indicator most of the time. The last
@@ -374,7 +453,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         if claudeProviderVisible,
            case .available(let claude) = claudeResult,
            let window = claude.limits.mostConstrainedWindow {
-            candidates.append((DisplayedLimit(provider: .claude, window: window), claude.lastUsageChangeAt))
+            // The live and `~/.claude.json` sources carry no history of their own,
+            // so activity mainly comes from watching the merged numbers grow.
+            let activity = [claudeActivity.lastActivityAt, claude.lastUsageChangeAt].compactMap { $0 }.max()
+            candidates.append((DisplayedLimit(provider: .claude, window: window), activity))
         }
         guard !candidates.isEmpty else { return [] }
 
@@ -441,7 +523,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             Task { @MainActor in
                 guard let self else { return }
                 if self.codexProviderVisible { self.client.refresh() }
-                if self.claudeProviderVisible { self.refreshClaude() }
+                if self.claudeProviderVisible { self.pollClaude() }
             }
         }
     }
@@ -453,7 +535,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         if enabled {
             if codexProviderVisible { client.start() }
-            if claudeProviderVisible { refreshClaude() }
+            if claudeProviderVisible { pollClaude() }
             startRefreshTimer()
         } else {
             refreshTimer?.invalidate()
@@ -487,7 +569,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     @objc private func refreshNow() {
         guard monitoringEnabled else { return }
         if codexProviderVisible { client.refresh() }
-        if claudeProviderVisible { refreshClaude() }
+        if claudeProviderVisible { pollClaude(force: true) }
     }
 
     @objc private func toggleMonitoring() {
@@ -527,11 +609,23 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         claudeAutomaticRefreshEnabled = enabling
         UserDefaults.standard.set(enabling, forKey: Self.claudeAutomaticRefreshDefaultsKey)
         refreshClaudeAutomaticRefreshState()
-        refreshClaude()
+        if !enabling {
+            // Without live polling the last live result would otherwise keep its
+            // "Live" label while it ages.
+            claudeLiveSnapshot = nil
+            claudeLiveState = .idle
+        }
+        pollClaude(force: true)
     }
 
     private func refreshClaudeAutomaticRefreshState() {
         claudeAutomaticRefreshItem.state = claudeAutomaticRefreshEnabled ? .on : .off
+    }
+
+    @objc private func systemDidWake(_ notification: Notification) {
+        guard monitoringEnabled else { return }
+        if codexProviderVisible { client.refresh() }
+        if claudeProviderVisible { pollClaude(force: true) }
     }
 
     @objc private func claudeCodeUsageUpdated(_ notification: Notification) {
@@ -622,7 +716,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             claudeProviderVisible.toggle()
             UserDefaults.standard.set(claudeProviderVisible, forKey: Self.claudeVisibleDefaultsKey)
             if claudeProviderVisible, monitoringEnabled {
-                refreshClaude()
+                pollClaude()
             }
         }
         render()
@@ -726,7 +820,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         refreshLaunchAtLoginState()
         if monitoringEnabled {
             if codexProviderVisible { client.refresh() }
-            if claudeProviderVisible { refreshClaude() }
+            if claudeProviderVisible { pollClaude() }
         }
         menu.update()
         let width = max(Self.minimumContentWidth, menu.size.width)

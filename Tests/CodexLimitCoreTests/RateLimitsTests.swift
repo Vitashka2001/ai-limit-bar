@@ -264,6 +264,123 @@ import Testing
     #expect(!snapshot.isRecent(at: now.addingTimeInterval(30 * 60)))
 }
 
+@Test func parsesTheLiveUsageResponse() throws {
+    // Trimmed from a real `/api/oauth/usage` body: meters, code names, `limits`.
+    let json = #"""
+    {
+      "five_hour":{"utilization":39.0,"resets_at":"2026-10-29T17:40:00.147746+00:00","limit_dollars":null},
+      "seven_day":{"utilization":13.0,"resets_at":"2026-11-04T20:00:00.147764+00:00"},
+      "seven_day_opus":null,
+      "amber_cistern":{"utilization":5,"resets_at":null},
+      "extra_usage":{"is_enabled":false},
+      "limits":[{"kind":"session","percent":39,"is_active":true}],
+      "member_dashboard_available":true
+    }
+    """#
+    let fetchedAt = Date(timeIntervalSince1970: 1_793_000_000)
+    let decoded = try ClaudeUsageAPI.decodeResponse(Data(json.utf8), fetchedAt: fetchedAt)
+    let snapshot = try #require(decoded)
+
+    #expect(snapshot.fetchedAt == fetchedAt)
+    #expect(snapshot.windows.map(\.identifier) == ["five_hour", "seven_day"])
+    #expect(snapshot.fiveHour?.remainingPercent == 61)
+    // ISO8601DateFormatter keeps milliseconds, so compare at that precision.
+    let reset = try #require(snapshot.fiveHour?.resetsAt)
+    #expect(abs(reset.timeIntervalSince1970 - 1_793_295_600.147) < 0.001)
+}
+
+@Test func rejectsALiveResponseWithoutMeters() throws {
+    #expect(try ClaudeUsageAPI.decodeResponse(Data(#"{"error":{"type":"rate_limit_error"}}"#.utf8)) == nil)
+}
+
+@Test func readsClaudeCodeCredentialsAsTextOrHex() throws {
+    let json = #"{"claudeAiOauth":{"accessToken":"token-1","refreshToken":"never-used","expiresAt":1793000000000}}"#
+    let text = try #require(ClaudeOAuthCredentials.decode(keychainOutput: Data((json + "\n").utf8)))
+    #expect(text.accessToken == "token-1")
+    #expect(text.expiresAt == Date(timeIntervalSince1970: 1_793_000_000))
+
+    let hex = Data(json.utf8).map { String(format: "%02x", $0) }.joined()
+    let decoded = try #require(ClaudeOAuthCredentials.decode(keychainOutput: Data((hex + "\n").utf8)))
+    #expect(decoded.accessToken == "token-1")
+
+    #expect(ClaudeOAuthCredentials.decode(keychainOutput: Data("not credentials".utf8)) == nil)
+    #expect(ClaudeOAuthCredentials.decode(keychainOutput: Data(#"{"claudeAiOauth":{"accessToken":""}}"#.utf8)) == nil)
+}
+
+@Test func treatsATokenNearExpiryAsUnusable() {
+    let now = Date(timeIntervalSince1970: 1_793_000_000)
+    #expect(ClaudeOAuthCredentials(accessToken: "t", expiresAt: now.addingTimeInterval(600)).isUsable(at: now))
+    #expect(!ClaudeOAuthCredentials(accessToken: "t", expiresAt: now.addingTimeInterval(30)).isUsable(at: now))
+    #expect(!ClaudeOAuthCredentials(accessToken: "t", expiresAt: now.addingTimeInterval(-1)).isUsable(at: now))
+    #expect(ClaudeOAuthCredentials(accessToken: "t", expiresAt: nil).isUsable(at: now))
+}
+
+@Test func prefersTheLiveResultOverOlderLocalCaches() throws {
+    let now = Date(timeIntervalSince1970: 1_793_000_000)
+    let reset = now.addingTimeInterval(2_400)
+    let live = ClaudeUsageSnapshot(
+        limits: RateLimitSnapshot(planType: nil, windows: [
+            RateLimitWindow(identifier: "five_hour", usedPercent: 39, windowDurationMinutes: 300, resetsAt: reset),
+        ], fetchedAt: now),
+        organizationID: nil,
+        lastUsageChangeAt: nil,
+        source: .api
+    )
+    let config = ClaudeUsageSnapshot(
+        limits: RateLimitSnapshot(planType: nil, windows: [
+            RateLimitWindow(identifier: "five_hour", usedPercent: 34, windowDurationMinutes: 300, resetsAt: reset),
+        ], fetchedAt: now.addingTimeInterval(-600)),
+        organizationID: nil,
+        lastUsageChangeAt: nil,
+        source: .config
+    )
+
+    let merged = try #require(ClaudeUsageSnapshot.merged([config, live], at: now))
+    #expect(merged.source == .api)
+    #expect(merged.limits.fiveHour?.usedPercent == 39)
+}
+
+/// `#expect` cannot wrap a mutating call, so the observation happens out here.
+private func observe(_ tracker: inout UsageActivityTracker, _ windows: [RateLimitWindow], at date: Date) -> Bool {
+    tracker.observe(windows, at: date)
+}
+
+@Test func countsOnlyUsageGrowthAsActivity() {
+    let start = Date(timeIntervalSince1970: 1_793_000_000)
+    func windows(_ five: Double, _ week: Double) -> [RateLimitWindow] {
+        [
+            RateLimitWindow(identifier: "five_hour", usedPercent: five, windowDurationMinutes: 300, resetsAt: nil),
+            RateLimitWindow(identifier: "seven_day", usedPercent: week, windowDurationMinutes: 10_080, resetsAt: nil),
+        ]
+    }
+    var tracker = UsageActivityTracker()
+
+    // The first reading has nothing to compare against.
+    #expect(!observe(&tracker, windows(30, 10), at: start))
+    #expect(tracker.lastActivityAt == nil)
+
+    #expect(!observe(&tracker, windows(30, 10), at: start.addingTimeInterval(60)))
+    #expect(observe(&tracker, windows(31, 10), at: start.addingTimeInterval(120)))
+    #expect(tracker.lastActivityAt == start.addingTimeInterval(120))
+
+    // A reset emptying the window is time passing, not use.
+    #expect(!observe(&tracker, windows(0, 10), at: start.addingTimeInterval(180)))
+    #expect(tracker.lastActivityAt == start.addingTimeInterval(120))
+
+    // Growth from the new, lower baseline counts again.
+    #expect(observe(&tracker, windows(2, 10), at: start.addingTimeInterval(240)))
+    #expect(tracker.lastActivityAt == start.addingTimeInterval(240))
+}
+
+@Test func resumesActivityTrackingFromAStoredBaseline() {
+    let now = Date(timeIntervalSince1970: 1_793_000_000)
+    var tracker = UsageActivityTracker(signature: ["five_hour": 20], lastActivityAt: nil)
+    let windows = [RateLimitWindow(identifier: "five_hour", usedPercent: 25, windowDurationMinutes: 300, resetsAt: nil)]
+    // Usage grew while the app was closed, so the first reading after launch counts.
+    #expect(observe(&tracker, windows, at: now))
+    #expect(tracker.lastActivityAt == now)
+}
+
 @Test func parsesChatGPTAccountWithoutCredentials() throws {
     let json = #"""
     {"id":8,"result":{"account":{"type":"chatgpt","email":"user@example.com","planType":"plus"},"requiresOpenaiAuth":true}}

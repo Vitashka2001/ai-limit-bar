@@ -49,6 +49,11 @@
 "gauge.monitoringStopped.subtitle" = "Background polling is off";
 
 "dashboard.monitoringStopped" = "Monitoring is paused";
+"claude.liveUpdated" = "Live · updated %@";
+"claude.liveStale" = "Live · %@";
+"claude.liveHint.signedOut" = "%@ · sign in to Claude Code for live limits";
+"claude.liveHint.expired" = "%@ · live resumes once Claude Code runs";
+"claude.liveHint.rateLimited" = "%@ · live paused by the server";
 "claude.codeUpdated" = "Claude Code · updated %@";
 "claude.codeStale" = "Claude Code · %@ · waiting";
 "claude.desktopUpdated" = "Desktop · updated %@";

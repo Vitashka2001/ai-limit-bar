@@ -8,13 +8,26 @@ enum ClaudeUsageReadResult: Equatable, Sendable {
     case failed
 }
 
-/// Gathers every local place Claude leaves its usage numbers and merges them.
-/// None of them publishes on a fixed schedule, so relying on any single one leaves
-/// long gaps; together they cover each other.
+/// Merges the live `/api/oauth/usage` result with every local place Claude leaves
+/// its usage numbers. The live request is the only one on a fixed schedule; the
+/// local sources keep the indicator populated while it cannot run.
 enum ClaudeUsageReader {
-    static func read(fileManager: FileManager = .default, now: Date = Date()) -> ClaudeUsageReadResult {
+    static func read(
+        live: RateLimitSnapshot? = nil,
+        fileManager: FileManager = .default,
+        now: Date = Date()
+    ) -> ClaudeUsageReadResult {
         var snapshots: [ClaudeUsageSnapshot] = []
         var readFailed = false
+
+        if let live {
+            snapshots.append(ClaudeUsageSnapshot(
+                limits: live,
+                organizationID: nil,
+                lastUsageChangeAt: nil,
+                source: .api
+            ))
+        }
 
         func load(_ url: URL, _ transform: (Data) throws -> ClaudeUsageSnapshot?) {
             guard fileManager.fileExists(atPath: url.path) else { return }
