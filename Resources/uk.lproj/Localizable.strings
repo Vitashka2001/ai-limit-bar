@@ -52,7 +52,7 @@
 "claude.liveUpdated" = "Наживо · оновлено %@";
 "claude.liveStale" = "Наживо · %@";
 "claude.liveHint.signedOut" = "%@ · увійдіть у Claude Code для живих лімітів";
-"claude.liveHint.expired" = "%@ · наживо відновиться після запуску Claude Code";
+"claude.liveHint.expired" = "%@ · наживо на паузі: відкрийте Claude Code, щоб оновити вхід";
 "claude.liveHint.rateLimited" = "%@ · сервер тимчасово призупинив оновлення";
 "claude.codeUpdated" = "Claude Code · оновлено %@";
 "claude.codeStale" = "Claude Code · %@ · очікування";

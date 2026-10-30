@@ -48,6 +48,50 @@ enum ClaudeCodeIntegration {
         }
     }
 
+    /// A Claude Code executable that can run without a shell environment. Editor
+    /// extensions ship a self-contained native binary, so the newest of those comes
+    /// first; standalone installs follow, since a package-manager `claude` may be a
+    /// Node script that needs a `PATH` a menu-bar app does not inherit.
+    static var executableURL: URL? {
+        let fileManager = FileManager.default
+        let home = fileManager.homeDirectoryForCurrentUser
+        let extensionRoots = [
+            home.appendingPathComponent(".vscode/extensions"),
+            home.appendingPathComponent(".vscode-insiders/extensions"),
+            home.appendingPathComponent(".cursor/extensions"),
+        ]
+        let bundled = extensionRoots.flatMap { root -> [(version: [Int], url: URL)] in
+            guard let entries = try? fileManager.contentsOfDirectory(atPath: root.path) else { return [] }
+            return entries.compactMap { entry in
+                guard let version = extensionVersion(entry) else { return nil }
+                let binary = root.appendingPathComponent(entry)
+                    .appendingPathComponent("resources/native-binary/claude")
+                guard fileManager.isExecutableFile(atPath: binary.path) else { return nil }
+                return (version, binary)
+            }
+        }
+        if let newest = bundled.max(by: { $0.version.lexicographicallyPrecedes($1.version) }) {
+            return newest.url
+        }
+
+        let standalone = [
+            home.appendingPathComponent(".local/bin/claude"),
+            home.appendingPathComponent(".claude/local/claude"),
+            URL(fileURLWithPath: "/opt/homebrew/bin/claude"),
+            URL(fileURLWithPath: "/usr/local/bin/claude"),
+        ]
+        return standalone.first { fileManager.isExecutableFile(atPath: $0.path) }
+    }
+
+    /// `anthropic.claude-code-2.1.312-darwin-arm64` → `[2, 1, 312]`.
+    private static func extensionVersion(_ directoryName: String) -> [Int]? {
+        let prefix = "anthropic.claude-code-"
+        guard directoryName.lowercased().hasPrefix(prefix) else { return nil }
+        let version = directoryName.dropFirst(prefix.count).prefix { $0.isNumber || $0 == "." }
+        let components = version.split(separator: ".").compactMap { Int($0) }
+        return components.isEmpty ? nil : components
+    }
+
     static func install(executableURL: URL) -> InstallResult {
         var root = readSettings() ?? [:]
         if let statusLine = root["statusLine"] as? [String: Any],
@@ -133,7 +177,7 @@ enum ClaudeCodeIntegration {
         applicationSupportURL.appendingPathComponent("claude-code-usage.json")
     }
 
-    private static var applicationSupportURL: URL {
+    static var applicationSupportURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/AI Limit Bar", isDirectory: true)
     }

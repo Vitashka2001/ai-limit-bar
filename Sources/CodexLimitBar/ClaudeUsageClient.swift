@@ -1,5 +1,6 @@
 import Foundation
 import CodexLimitCore
+import OSLog
 
 /// Polls `GET /api/oauth/usage` with Claude Code's own access token — the request
 /// behind Claude Code's `/usage` command. Claude's local caches only refresh about
@@ -11,7 +12,8 @@ final class ClaudeUsageClient: @unchecked Sendable {
         case live
         /// No Claude Code login exists in the keychain.
         case signedOut
-        /// The token lapsed or was rejected; Claude Code renews it on next use.
+        /// The token lapsed or was rejected and asking Claude Code to renew it
+        /// has not worked yet; the next attempt follows `renewalInterval`.
         case tokenExpired
         case rateLimited(until: Date)
         case failed
@@ -27,6 +29,10 @@ final class ClaudeUsageClient: @unchecked Sendable {
     private static let initialBackoff: TimeInterval = 60
     private static let maximumBackoff: TimeInterval = 15 * 60
     private static let keychainTimeout: TimeInterval = 5
+    /// A failed renewal usually means the user must sign in again, so retrying
+    /// sooner would only keep spawning Claude Code for nothing.
+    private static let renewalInterval: TimeInterval = 10 * 60
+    private static let renewalTimeout: TimeInterval = 45
 
     private let queue = DispatchQueue(label: "com.vitashka2001.AILimitBar.claude-usage")
     private let session: URLSession
@@ -34,6 +40,11 @@ final class ClaudeUsageClient: @unchecked Sendable {
     private var lastAttemptAt: Date?
     private var blockedUntil: Date?
     private var backoff = initialBackoff
+    private var lastRenewalAt: Date?
+    /// Diagnostic switch: runs the renewal path once at launch even with a valid
+    /// token, so it can be exercised without waiting hours for a real expiry.
+    private var renewalForced = ProcessInfo.processInfo.environment["AI_LIMIT_BAR_FORCE_CLAUDE_RENEWAL"] == "1"
+    private let logger = Logger(subsystem: "com.vitashka2001.AILimitBar", category: "claude-usage")
 
     init() {
         let configuration = URLSessionConfiguration.ephemeral
@@ -61,15 +72,26 @@ final class ClaudeUsageClient: @unchecked Sendable {
         }
         lastAttemptAt = now
 
-        guard let credentials = Self.readCredentials() else {
+        guard var credentials = Self.readCredentials() else {
             emitState(.signedOut)
             return
         }
-        guard credentials.isUsable(at: now) else {
-            emitState(.tokenExpired)
-            return
+        if !credentials.isUsable(at: now) || renewalForced {
+            renewalForced = false
+            // Nothing else renews the token while Claude Code is closed, which
+            // would otherwise freeze live limits until it happens to be opened.
+            guard renewSignIn(now: now),
+                  let renewed = Self.readCredentials(),
+                  renewed.isUsable() else {
+                emitState(.tokenExpired)
+                return
+            }
+            credentials = renewed
         }
+        send(credentials)
+    }
 
+    private func send(_ credentials: ClaudeOAuthCredentials) {
         var request = URLRequest(url: Self.endpoint)
         request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
@@ -104,7 +126,12 @@ final class ClaudeUsageClient: @unchecked Sendable {
             onSnapshot?(snapshot)
             emitState(.live)
         case 401, 403:
-            emitState(.tokenExpired)
+            // The token was revoked or replaced before its stated expiry.
+            if renewSignIn(now: now) {
+                performRefresh(force: true)
+            } else {
+                emitState(.tokenExpired)
+            }
         case 429:
             let delay = Self.retryAfter(response, now: now) ?? backoff
             backoff = min(backoff * 2, Self.maximumBackoff)
@@ -118,6 +145,69 @@ final class ClaudeUsageClient: @unchecked Sendable {
 
     private func emitState(_ state: State) {
         onStateChange?(state)
+    }
+
+    /// Lets Claude Code renew its own sign-in by running its local `/usage` command:
+    /// no model turn, no cost, no transcript, hooks, MCP servers or auto-memory.
+    /// That command fetches usage with token refresh enabled, so Claude Code renews
+    /// an expired token through its usual locked, keychain-writing path — exactly
+    /// what any other open Claude Code window would do. Renewing it here instead
+    /// would rotate the refresh token from under Claude Code and sign it out.
+    /// Returns whether Claude Code ran successfully.
+    private func renewSignIn(now: Date) -> Bool {
+        if let lastRenewalAt, now.timeIntervalSince(lastRenewalAt) < Self.renewalInterval {
+            return false
+        }
+        lastRenewalAt = now
+        guard let executable = ClaudeCodeIntegration.executableURL else {
+            logger.notice("Claude Code sign-in renewal skipped: no Claude Code executable found")
+            return false
+        }
+
+        // A fixed, app-owned working directory keeps Claude Code from reading any
+        // project's settings or CLAUDE.md.
+        let workingDirectory = ClaudeCodeIntegration.applicationSupportURL
+        try? FileManager.default.createDirectory(
+            at: workingDirectory,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = [
+            "-p", "/usage",
+            "--output-format", "json",
+            "--no-session-persistence",
+            "--strict-mcp-config",
+            "--settings", #"{"disableAllHooks":true,"autoMemoryEnabled":false}"#,
+        ]
+        process.currentDirectoryURL = workingDirectory
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", environment["PATH"]]
+            .compactMap { $0 }
+            .joined(separator: ":")
+        process.environment = environment
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+        } catch {
+            logger.error("Claude Code sign-in renewal could not start: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+        let watchdog = DispatchWorkItem { [weak process] in
+            if process?.isRunning == true { process?.terminate() }
+        }
+        DispatchQueue.global().asyncAfter(deadline: .now() + Self.renewalTimeout, execute: watchdog)
+        process.waitUntilExit()
+        watchdog.cancel()
+
+        let succeeded = process.terminationReason == .exit && process.terminationStatus == 0
+        logger.notice("Claude Code sign-in renewal finished: \(succeeded ? "ok" : "failed", privacy: .public) (status \(process.terminationStatus))")
+        return succeeded
     }
 
     private static func retryAfter(_ response: HTTPURLResponse, now: Date) -> TimeInterval? {
